@@ -1,0 +1,183 @@
+import express from 'express';
+var app = express();
+var port = process.env.SERVER_PORT;
+
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import jwt from "jsonwebtoken";
+//import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import cryptic from './cryptic.js'
+import bodyParser from 'body-parser'
+//var httpServer = http.createServer(app);
+import {createConnection,getHub,closeConnection} from './pgconnector.js'
+app.use(morgan('combined'));
+app.use(helmet({
+
+}));
+app.disable('x-powered-by');
+
+var corsOptionsDelegate = async function (req,callback) {
+  var corsOptions;
+  //origin: async function (origin, callback) {
+    // db.loadOrigins is an example call to load
+    // a list of origins from a backing database
+    var origin = req.header('Origin');
+    console.log("origin:");
+    console.log(origin);
+    var client = await createConnection();
+    var o = await getHub(client,origin);
+    await closeConnection(client);
+    if (o != null){
+      corsOptions = { origin: true }
+    }
+    else{
+      corsOptions = { origin: false }
+    }
+    callback(null, corsOptions);
+    
+  //}
+}
+
+async function secTest(token){
+  try{
+    const decoded = jwt.verify(token, process.env.JWT_KEY);
+    return true;
+  }
+  catch(error){
+    return false;
+  }
+}
+app.use(cors(corsOptionsDelegate));
+app.use(express.json());
+app.use(bodyParser.json());
+
+import sequelize from './models/database.js';
+import { User, Company, Hub, Location, Logs } from './models/index.js';
+sequelize.sync({ force: false }).then(()=>{
+  //console.log("created");
+}).catch((e)=>{
+  console.log(e);
+});
+
+
+
+app.get('/', (req, res) => {
+    res.send('Hello World!')
+});
+
+app.post('/secure', async (req,res)=>{
+  const token = req.headers['authorization'];
+  if (!token) {
+    return res.status(401).json({ "type":"result","result":"fail","message": 'error' });
+  }
+
+  try {
+      //const decoded = jwt.verify(token, process.env.JWT_KEY);
+      //res.json({ message: 'Protected route', user: decoded });
+      if (await secTest(token)){
+        res.json({ message: 'Protected route achieved' });
+      }
+      else{
+        res.json({ message: 'Protected route failed'});
+      }
+  } catch (error) {
+      res.status(401).json({ "type":"result","result":"fail","message": 'error' });
+  }
+});
+
+
+app.post("/login", async (req, res) => {
+  console.log("login request post");
+  var body = req.body;
+  const userVal = await User.findOne({
+    where:{
+      username: body.username,
+      authMethod: "local"
+    }
+  });
+  if (userVal != undefined && userVal != null && userVal.dataValues != undefined && userVal.dataValues != null){
+    var user = userVal.dataValues;
+    if (await cryptic.compare(body.password,user.password)){
+      delete user.password;
+      const token = jwt.sign(user, process.env.JWT_KEY);
+      res.json({
+        "type":"result",
+        "result":"ok",
+        "token":token
+      });
+    }
+    else{
+      res.json({
+        "type":"result",
+        "result":"fail"
+      });
+    }
+  }
+  
+  else{
+    res.json({
+      "type":"result",
+      "result":"fail"
+    });
+  }
+  
+});
+
+app.post("/register", async (req, res) => {
+  var body = req.body;
+  console.log(body);
+  const pass = await cryptic.hash(req.body.password);
+  const user = await User.create({
+    username: body.username,
+    password: pass,
+    name: body.name,
+    email: body.email,
+    phone: body.phone,
+    authMethod: "local",
+    userlevel: 1,
+    hubID: 1
+  });
+  res.json({"type":"result","result":"ok"});
+});
+
+
+
+
+
+
+
+
+
+
+
+//these must be at the bottom but before listen !!!!
+
+app.use((req, res) => {
+  try {
+    console.log(req.query.url);
+    if (new Url(req.query.url).host !== 'net.centria.fi') {
+      return res.status(400).end(`Unsupported redirect to host: ${req.query.url}`)
+    }
+  } catch (e) {
+    return res.status(400).end(`Invalid url: ${req.query.url}`)
+  }
+  res.redirect(req.query.url)
+})
+
+app.use((req, res, next) => {
+  res.status(404).send("Sorry can't find that!")
+})
+
+// custom error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack)
+  res.status(500).send('Something broke!')
+})
+
+app.listen(port, () => {
+    console.log(`started server in port: ${port}`)
+});
+

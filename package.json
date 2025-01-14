@@ -1,0 +1,31 @@
+{
+    "name": "digibiogashubs",
+    "version": "1.0.0",
+    "description": "Digibiogashubs project server https://net.centria.fi/hanke/digibiogashubs/",
+    "main": "./src/index.js",
+    "type": "module",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "digibiogashubs"
+    ],
+    "author": "Centria TKI",
+    "license": "UNLICENSED",
+    "dependencies": {
+        "body-parser": "^1.20.2",
+        "connect-busboy": "^1.0.0",
+        "connect-pg-simple": "^9.0.1",
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.5",
+        "express": "^4.19.2",
+        "fs": "0.0.1-security",
+        "helmet": "^7.1.0",
+        "isoxml": "1.10.0",
+        "jsonwebtoken": "^9.0.2",
+        "morgan": "^1.10.0",
+        "pg": "^8.12.0",
+        "querystring": "^0.2.1",
+        "sequelize": "^6.37.5"
+    }
+}
