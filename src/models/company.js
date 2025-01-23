@@ -4,10 +4,16 @@ import  sequelize  from './database.js';
 
 
 const Company = sequelize.define('Company',{
-    name: {
-        type: DataTypes.STRING,
+    id:{
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
         allowNull: false,
         unique: true,
+        primaryKey:true
+    },
+    name: {
+        type:DataTypes.TEXT,
+        allowNull:false
     },
     address:{
         type: DataTypes.STRING,
@@ -30,6 +36,8 @@ const Company = sequelize.define('Company',{
     },
     companyType:{
         type: DataTypes.SMALLINT,
+    },hubID:{
+        type: DataTypes.INTEGER
     }
 });
 

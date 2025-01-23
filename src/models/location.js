@@ -22,7 +22,7 @@ const Location = sequelize.define('Location',{
         allowNull: false,
     },
     companyID:{
-        type: DataTypes.BIGINT,
+        type: DataTypes.UUID,
         allowNull: false,
     }
 });

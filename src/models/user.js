@@ -4,10 +4,17 @@ import  sequelize  from './database.js';
 
 
 const User = sequelize.define('User',{
-    username: {
-        type: DataTypes.STRING,
+    id:{
+        type: DataTypes.UUID,
+        defaultValue:DataTypes.UUIDV4,
+        primaryKey:true,
         allowNull: false,
         unique: true,
+    },
+    username: {
+        type:DataTypes.TEXT,
+        unique: true,
+        allowNull:false
     },
     password:{
         type: DataTypes.STRING(1000),
@@ -33,6 +40,9 @@ const User = sequelize.define('User',{
     },
     hubID:{
         type: DataTypes.BIGINT
+    },
+    language:{
+        type: DataTypes.STRING
     }
 });
 export default User;

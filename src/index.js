@@ -6,13 +6,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import jwt from "jsonwebtoken";
-//import http from 'http';
-import fs from 'fs';
-import path from 'path';
-import cryptic from './cryptic.js'
-import bodyParser from 'body-parser'
-//var httpServer = http.createServer(app);
-import {createConnection,getHub,closeConnection} from './pgconnector.js'
+import cryptic from './cryptic.js';
+import bodyParser from 'body-parser';
+import {createConnection,getHub,closeConnection} from './pgconnector.js';
 app.use(morgan('combined'));
 app.use(helmet({
 
@@ -25,8 +21,8 @@ var corsOptionsDelegate = async function (req,callback) {
     // db.loadOrigins is an example call to load
     // a list of origins from a backing database
     var origin = req.header('Origin');
-    console.log("origin:");
-    console.log(origin);
+    //console.log("origin:");
+    //console.log(origin);
     var client = await createConnection();
     var o = await getHub(client,origin);
     await closeConnection(client);
@@ -40,6 +36,36 @@ var corsOptionsDelegate = async function (req,callback) {
     
   //}
 }
+
+app.use(async (req, res, next) => {
+  console.log(req.url);
+  if (req.url == '/login' || req.url == '/register'){
+    next();
+  }
+  else{
+    console.log("else");
+    const token = req.headers['authorization'];
+    if (!token) {
+      return res.status(401).json({ "type":"result","result":"fail","message": 'error' });
+    }
+    console.log(token);
+    try {
+        if (await secTest(token)){
+          console.log("going to next");
+          next();
+        }
+        else{
+          console.log("error1");
+          return res.status(401).json({ "type":"result","result":"fail","message": 'error' });
+        }
+    } catch (error) {
+      console.log("error2"); 
+      console.log(error);
+        res.status(401).json({ "type":"result","result":"fail","message": 'error' });
+    }
+  }
+})
+
 
 async function secTest(token){
   try{
@@ -69,23 +95,9 @@ app.get('/', (req, res) => {
 });
 
 app.post('/secure', async (req,res)=>{
-  const token = req.headers['authorization'];
-  if (!token) {
-    return res.status(401).json({ "type":"result","result":"fail","message": 'error' });
-  }
-
-  try {
-      //const decoded = jwt.verify(token, process.env.JWT_KEY);
-      //res.json({ message: 'Protected route', user: decoded });
-      if (await secTest(token)){
-        res.json({ message: 'Protected route achieved' });
-      }
-      else{
-        res.json({ message: 'Protected route failed'});
-      }
-  } catch (error) {
-      res.status(401).json({ "type":"result","result":"fail","message": 'error' });
-  }
+  
+    res.json({ message: 'Protected route achieved' });
+      
 });
 
 
