@@ -1,7 +1,7 @@
 import express from 'express';
 var app = express();
 var port = process.env.SERVER_PORT;
-
+import axios from 'axios';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -14,6 +14,13 @@ app.use(helmet({
 
 }));
 app.disable('x-powered-by');
+import sequelize from './models/database.js';
+import { User, Company, Hub, Location, Logs } from './models/index.js';
+sequelize.sync({ force: false }).then(()=>{
+  //console.log("created");
+}).catch((e)=>{
+  console.log(e);
+});
 
 var corsOptionsDelegate = async function (req,callback) {
   var corsOptions;
@@ -21,15 +28,20 @@ var corsOptionsDelegate = async function (req,callback) {
     // db.loadOrigins is an example call to load
     // a list of origins from a backing database
     var origin = req.header('Origin');
-    //console.log("origin:");
-    //console.log(origin);
-    var client = await createConnection();
-    var o = await getHub(client,origin);
-    await closeConnection(client);
-    if (o != null){
+    console.log("origin:",origin);
+    const hub = await Hub.findOne({ 
+      where: { origin: origin }
+    });
+    console.log(hub);
+    //var client = await createConnection();
+    //var o = await getHub(client,origin);
+    //await closeConnection(client);
+    if (hub != null && hub.dataValues != null && hub.dataValues.type == 1){
+      console.log("origin is ok");
       corsOptions = { origin: true }
     }
     else{
+      confirm.log("origin is not ok");
       corsOptions = { origin: false }
     }
     callback(null, corsOptions);
@@ -39,7 +51,7 @@ var corsOptionsDelegate = async function (req,callback) {
 
 app.use(async (req, res, next) => {
   console.log(req.url);
-  if (req.url == '/login' || req.url == '/register'){
+  if (req.url == '/login' || req.url == '/register', req.url == '/stations') {
     next();
   }
   else{
@@ -80,13 +92,7 @@ app.use(cors(corsOptionsDelegate));
 app.use(express.json());
 app.use(bodyParser.json());
 
-import sequelize from './models/database.js';
-import { User, Company, Hub, Location, Logs } from './models/index.js';
-sequelize.sync({ force: false }).then(()=>{
-  //console.log("created");
-}).catch((e)=>{
-  console.log(e);
-});
+
 
 
 
@@ -102,7 +108,6 @@ app.post('/secure', async (req,res)=>{
 
 
 app.post("/login", async (req, res) => {
-  console.log("login request post");
   var body = req.body;
   const userVal = await User.findOne({
     where:{
@@ -139,24 +144,43 @@ app.post("/login", async (req, res) => {
 });
 
 app.post("/register", async (req, res) => {
-  var body = req.body;
-  console.log(body);
-  const pass = await cryptic.hash(req.body.password);
-  const user = await User.create({
-    username: body.username,
-    password: pass,
-    name: body.name,
-    email: body.email,
-    phone: body.phone,
-    authMethod: "local",
-    userlevel: 1,
-    hubID: 1
-  });
-  res.json({"type":"result","result":"ok"});
+  try{
+    var body = req.body;
+    console.log(body);
+    const pass = await cryptic.hash(req.body.password);
+    const user = await User.create({
+      username: body.username,
+      password: pass,
+      name: body.name,
+      email: body.email,
+      phone: body.phone,
+      authMethod: "local",
+      userlevel: 1,
+      hubID: 1
+    });
+    res.json({"type":"result","result":"ok"});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot register"});
+  }
 });
 
 
-
+app.post("/stations", async (req, res) => {
+  try{
+    var body = req.body;
+    var url = "https://www.gasum.com/api/stations?language=fi";
+    axios.get(url,{withCredentials: false}).then((response) => {
+        res.json({"type":"result","result":response.data});
+    }).catch((error) => {  console.log(error); });
+    
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot register"});
+  }
+});
 
 
 

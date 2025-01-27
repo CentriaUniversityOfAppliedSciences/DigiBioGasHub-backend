@@ -13,6 +13,7 @@
     "author": "Centria TKI",
     "license": "UNLICENSED",
     "dependencies": {
+        "axios": "^1.7.9",
         "body-parser": "^1.20.2",
         "connect-busboy": "^1.0.0",
         "connect-pg-simple": "^9.0.1",
