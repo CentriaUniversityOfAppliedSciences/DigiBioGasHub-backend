@@ -28,11 +28,10 @@ var corsOptionsDelegate = async function (req,callback) {
     // db.loadOrigins is an example call to load
     // a list of origins from a backing database
     var origin = req.header('Origin');
-    console.log("origin:",origin);
+
     const hub = await Hub.findOne({ 
       where: { origin: origin }
     });
-    console.log(hub);
     //var client = await createConnection();
     //var o = await getHub(client,origin);
     //await closeConnection(client);
@@ -50,17 +49,14 @@ var corsOptionsDelegate = async function (req,callback) {
 }
 
 app.use(async (req, res, next) => {
-  console.log(req.url);
   if (req.url == '/login' || req.url == '/register', req.url == '/stations') {
     next();
   }
   else{
-    console.log("else");
     const token = req.headers['authorization'];
     if (!token) {
       return res.status(401).json({ "type":"result","result":"fail","message": 'error' });
     }
-    console.log(token);
     try {
         if (await secTest(token)){
           console.log("going to next");
@@ -146,7 +142,6 @@ app.post("/login", async (req, res) => {
 app.post("/register", async (req, res) => {
   try{
     var body = req.body;
-    console.log(body);
     const pass = await cryptic.hash(req.body.password);
     const user = await User.create({
       username: body.username,
@@ -193,7 +188,6 @@ app.post("/stations", async (req, res) => {
 
 app.use((req, res) => {
   try {
-    console.log(req.query.url);
     if (new Url(req.query.url).host !== 'net.centria.fi') {
       return res.status(400).end(`Unsupported redirect to host: ${req.query.url}`)
     }
