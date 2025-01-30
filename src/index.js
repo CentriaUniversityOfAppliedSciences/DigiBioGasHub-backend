@@ -14,15 +14,14 @@ import morgan from 'morgan';
 import jwt from "jsonwebtoken";
 import cryptic from './cryptic.js';
 import bodyParser from 'body-parser';
-import {createConnection,getHub,closeConnection} from './pgconnector.js';
 app.use(morgan('combined'));
 app.use(helmet({
 
 }));
 app.disable('x-powered-by');
 import sequelize from './models/database.js';
-import { User, Company, Hub, Location, Logs, Offer } from './models/index.js';
-import { start } from 'repl';
+import { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids } from './models/index.js';
+
 sequelize.sync({ force: false }).then(()=>{
   //console.log("created");
 }).catch((e)=>{
@@ -86,6 +85,8 @@ app.use(async (req, res, next) => {
     next();
   }
   else{
+    console.log("else");
+    console.log(req);
     const token = req.headers['authorization'];
     if (!token) {
       return res.status(401).json({ "type":"result","result":"fail","message": 'error' });
@@ -380,8 +381,7 @@ app.post("/createoffer", async (req, res) => {
 
 app.post("/getoffers", async (req, res) => {
   try{
-    const offers = await Offer.findAll({
-      
+    const offers = await Offer.findAll({ include: [Company, Material, Location]      
     });
     res.json({"type":"result","result":offers});
   }
@@ -398,6 +398,7 @@ app.post("/getoffers", async (req, res) => {
 * @param {integer} type
 * @param {string} quality
 * @param {json} other
+* @param {string} locality
 */
 app.post("/creatematerial", async (req, res) => {
   try{
