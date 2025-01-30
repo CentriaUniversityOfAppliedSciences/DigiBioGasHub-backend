@@ -20,7 +20,7 @@ const Material = sequelize.define('Material',{
         type: DataTypes.JSON
     },
     locality:{
-        type:DataTypes.INTEGER
+        type:DataTypes.TEXT
     }
     
 });
