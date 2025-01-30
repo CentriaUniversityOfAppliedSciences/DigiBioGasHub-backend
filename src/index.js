@@ -1,3 +1,9 @@
+
+/* 
+* importing nodejs modules and starting express server
+* uses morgan and helmet for logging and security
+* sequelize is used for database connection
+*/
 import express from 'express';
 var app = express();
 var port = process.env.SERVER_PORT;
@@ -15,12 +21,17 @@ app.use(helmet({
 }));
 app.disable('x-powered-by');
 import sequelize from './models/database.js';
-import { User, Company, Hub, Location, Logs } from './models/index.js';
+import { User, Company, Hub, Location, Logs, Offer } from './models/index.js';
+import { start } from 'repl';
 sequelize.sync({ force: false }).then(()=>{
   //console.log("created");
 }).catch((e)=>{
   console.log(e);
 });
+
+/*
+* testing if connection origin is allowed, origins in Hubs table in database
+*/
 
 var corsOptionsDelegate = async function (req,callback) {
   var corsOptions;
@@ -28,28 +39,50 @@ var corsOptionsDelegate = async function (req,callback) {
     // db.loadOrigins is an example call to load
     // a list of origins from a backing database
     var origin = req.header('Origin');
-
-    const hub = await Hub.findOne({ 
-      where: { origin: origin }
-    });
-    //var client = await createConnection();
-    //var o = await getHub(client,origin);
-    //await closeConnection(client);
-    if (hub != null && hub.dataValues != null && hub.dataValues.type == 1){
-      console.log("origin is ok");
-      corsOptions = { origin: true }
+    console.log(origin);
+    if (origin != null || origin != undefined){
+      const hub = await Hub.findOne({ 
+        where: { origin: origin }
+      });
+      if (hub != null && hub.dataValues != null && hub.dataValues.type == 1){
+        console.log("origin is ok");
+        corsOptions = { origin: true }
+      }
+      else{
+        console.log("origin is not ok1");
+        corsOptions = { origin: false }
+      }
     }
     else{
-      confirm.log("origin is not ok");
+      console.log("origin is not ok2");
       corsOptions = { origin: false }
     }
+  
     callback(null, corsOptions);
     
   //}
 }
+app.use(cors(corsOptionsDelegate));
+app.use(express.json());
+app.use(bodyParser.json());
+
+/*
+*  checking jwt token, if token is not present or invalid, returns 401
+* /login, /register and /stations are allowed without token
+*/
 
 app.use(async (req, res, next) => {
-  if (req.url == '/login' || req.url == '/register', req.url == '/stations') {
+  console.log(req.url);
+  console.log(req.method);
+  if (req.url == '/login' || req.url == '/register' || req.url == '/stations'){ 
+    if (req.method == 'POST' || req.method == 'GET'){
+      await Logs.create({
+        userID: null,
+        action: req.url,
+        text: "jwt check not needed, page access granted, for page " + req.url + " from ip:" + req.ip,
+        level: 1
+      });
+    }
     next();
   }
   else{
@@ -58,51 +91,89 @@ app.use(async (req, res, next) => {
       return res.status(401).json({ "type":"result","result":"fail","message": 'error' });
     }
     try {
-        if (await secTest(token)){
-          console.log("going to next");
+        var [result,decoded] = await secTest(token);
+        if (result){
+          await Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "jwt check, page access granted:" + req.url + " for user:" + decoded.username + " from ip:" + req.ip,
+            level: 1
+          });
           next();
         }
         else{
-          console.log("error1");
+          if (decoded != null&& decoded != undefined && decoded.id != null && decoded.id != undefined){
+            await Logs.create({
+              userID: decoded.id,
+              action: req.url,
+              text: "jwt check, page access failed, invalid jwt token for: " + req.url + " for user:" + decoded.username + " from ip:" + req.ip,
+              level: 3
+            });
+          }
+          
           return res.status(401).json({ "type":"result","result":"fail","message": 'error' });
         }
     } catch (error) {
-      console.log("error2"); 
+      if (decoded != null&& decoded != undefined && decoded.id != null && decoded.id != undefined){
+        await Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "jwt check, page access failed, for page " + req.url +  " error: " + error + " for user:" + decoded.username + " from ip:" + req.ip,
+          level: 3
+        });
+      }
+      else{
+        await Logs.create({
+          userID: null,
+          action: req.url,
+          text: "jwt check, page access failed, for page " + req.url + "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
+      }
       console.log(error);
         res.status(401).json({ "type":"result","result":"fail","message": 'error' });
     }
   }
 })
 
-
+/*
+* function to check if jwt token is valid, uses jwt.verify
+*/
 async function secTest(token){
   try{
     const decoded = jwt.verify(token, process.env.JWT_KEY);
-    return true;
+    return [true,decoded];
   }
   catch(error){
-    return false;
+    return [false,null];
   }
 }
-app.use(cors(corsOptionsDelegate));
-app.use(express.json());
-app.use(bodyParser.json());
 
-
-
-
-
+/*
+* test route, TODO: remove
+*/
 app.get('/', (req, res) => {
     res.send('Hello World!')
 });
 
+/*
+* test route, TODO: remove
+*/
 app.post('/secure', async (req,res)=>{
   
     res.json({ message: 'Protected route achieved' });
       
 });
 
-
+/*
+* @route POST /login
+* @param {string} username
+* @param {string} password
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key token @value jwt token
+*/
 app.post("/login", async (req, res) => {
   var body = req.body;
   const userVal = await User.findOne({
@@ -139,11 +210,184 @@ app.post("/login", async (req, res) => {
   
 });
 
+/*
+* @route POST /createcompany
+* @param {string} name
+* @param {string} address
+* @param {string} city
+* @param {string} zipcode
+* @param {string} email
+* @param {string} phone
+* @param {integer} companyType
+* @param {integer} hubID
+* @param {string} web
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} company
+*/
+
+app.post("/createcompany", async (req, res) => {
+  try{
+    var body = req.body;
+    const company = await Company.create({
+      name: body.name,
+      address: body.address,
+      city: body.city,
+      zipcode: body.zipcode,
+      email: body.email,
+      phone: body.phone,
+      companyType: body.companyType,
+      hubID: body.hubID,
+      web: body.web
+    });
+    res.json({"type":"result","result":"ok","message":company});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot create company"});
+  }
+});
+
+/*
+* @route POST /updatecompany
+* @param {uuid} id
+* @param {string} name
+* @param {string} address
+* @param {string} city
+* @param {string} zipcode
+* @param {string} email
+* @param {string} phone
+* @param {integer} companyType
+* @param {string} web
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} company
+*/
+
+app.post("/updatecompany", async (req, res) => {
+  try{
+    var body = req.body;
+    const company = await Company.update({
+      name: body.name,
+      address: body.address,
+      city: body.city,
+      zipcode: body.zipcode,
+      email: body.email,
+      phone: body.phone,
+      companyType: body.companyType,
+      web: body.web
+    },{
+      where:{
+        id: body.id
+      }
+    });
+    res.json({"type":"result","result":"ok","message":company});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot update company"});
+  }
+});
+
+/*
+* @route POST /createlocation
+* @param {string} name
+* @param {double} latitude
+* @param {double} longitude
+* @param {integer} type
+* @param {uuid} companyID
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} location
+*/
+
+app.post("/createlocation", async (req, res) => {
+  try{
+    var body = req.body;
+    const location = await Location.create({
+      name: body.name,
+      latitude: body.latitude,
+      longitude: body.longitude,
+      type: body.type,
+      companyID: body.companyID
+    });
+    res.json({"type":"result","result":"ok","message":location});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot create location"});
+  }
+});
+
+/*
+* @route POST /createoffer
+* @param {integer} type
+* @param {integer} materialID
+* @param {uuid} companyID
+* @param {integer} locationID
+* @param {integer} unit (see unit-help file)
+* @param {float} price
+* @param {float} amount
+* @param {date} startDate
+* @param {date} endDate
+* @param {float} availableAmount
+* @param {uuid} creator
+* @param {integer} status
+* @param {integer} cargoType
+* @param {integer} visibility
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} offer
+*/
+
+app.post("/createoffer", async (req, res) => {
+  try{
+    var body = req.body;
+    const offer = await Offer.create({
+      type: body.type,
+      materialID: body.materialID,
+      companyID: body.companyID,
+      locationID: body.locationID,
+      unit: body.unit,
+      price: body.price,
+      amount: body.amount,
+      startDate: body.startDate,
+      endDate: body.endDate,
+      availableAmount: body.availableAmount,
+      creator: body.creator,
+      status: body.status,
+      cargoType: body.cargoType,
+      visibility: body.visibility
+    });
+    res.json({"type":"result","result":"ok","message":offer});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot create offer"});
+  }
+});
+
+/*
+* @route POST /register
+* @param {string} username
+* @param {string} password
+* @param {string} name
+* @param {string} email
+* @param {string} phone
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+*/
+
 app.post("/register", async (req, res) => {
   try{
     var body = req.body;
     const pass = await cryptic.hash(req.body.password);
-    const user = await User.create({
+    await User.create({
       username: body.username,
       password: pass,
       name: body.name,
@@ -161,6 +405,12 @@ app.post("/register", async (req, res) => {
   }
 });
 
+/*
+* @route POST /stations
+* @return {json} 
+  * @key type @value result
+  * @key result @value {json} stations
+*/
 
 app.post("/stations", async (req, res) => {
   try{
@@ -186,7 +436,8 @@ app.post("/stations", async (req, res) => {
 
 //these must be at the bottom but before listen !!!!
 
-app.use((req, res) => {
+/*app.use((req, res) => { //no redirects in use so commented
+  console.log(req.query.url);
   try {
     if (new Url(req.query.url).host !== 'net.centria.fi') {
       return res.status(400).end(`Unsupported redirect to host: ${req.query.url}`)
@@ -195,17 +446,43 @@ app.use((req, res) => {
     return res.status(400).end(`Invalid url: ${req.query.url}`)
   }
   res.redirect(req.query.url)
-})
+})*/
 
-app.use((req, res, next) => {
+/*
+* if route is not found, logs the error and returns custom 404
+*/
+
+app.use((req, res) => {
+  
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "page not found: " + req.url + " from ip:" + req.ip,
+      level: 4
+    });
+  
   res.status(404).send("Sorry can't find that!")
 })
 
+/*
+* if error is thrown, logs the error and returns custom 500
+*/
+
 // custom error handler
 app.use((err, req, res, next) => {
+  Logs.create({
+    userID: null,
+    action: req.url,
+    text: "server error at: " + req.url + " from ip:" + req.ip + " error: " + err.stack,
+    level: 5
+  });
   console.error(err.stack)
   res.status(500).send('Something broke!')
 })
+
+/*
+* starts the server and listens to port
+*/
 
 app.listen(port, () => {
     console.log(`started server in port: ${port}`)

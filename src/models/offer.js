@@ -8,22 +8,28 @@ const Offer = sequelize.define('Offer',{
         type: DataTypes.INTEGER
     },
     materialID:{
-        type: DataTypes.INTEGER
+        type: DataTypes.INTEGER,
+        allowNull: false
     },
     companyID: {
-        type: DataTypes.UUID
+        type: DataTypes.UUID,
+        allowNull: false
     },
     locationID:{
-        type: DataTypes.INTEGER
+        type: DataTypes.INTEGER,
+        allowNull: false
     },
     unit:{
-        type:DataTypes.INTEGER
+        type:DataTypes.INTEGER,
+        allowNull: false
     },
     price:{
-        type:DataTypes.DECIMAL
+        type:DataTypes.DECIMAL,
+        allowNull: false
     },
     amount:{
-        type:DataTypes.DECIMAL
+        type:DataTypes.DECIMAL,
+        allowNull: false
     },
     startDate:{
         type:DataTypes.DATE

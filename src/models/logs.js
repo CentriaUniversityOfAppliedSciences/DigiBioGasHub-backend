@@ -6,7 +6,7 @@ import  sequelize  from './database.js';
 const Logs = sequelize.define('Logs',{
     userID: {
         type: DataTypes.UUID,
-        allowNull: false
+        allowNull: true
     },
     action:{
         type: DataTypes.STRING,

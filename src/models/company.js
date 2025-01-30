@@ -27,7 +27,7 @@ const Company = sequelize.define('Company',{
         type: DataTypes.STRING,
         allowNull: false,
     },
-    contact:{
+    email:{
         type: DataTypes.STRING,
         allowNull: false,
     },
@@ -38,6 +38,9 @@ const Company = sequelize.define('Company',{
         type: DataTypes.SMALLINT,
     },hubID:{
         type: DataTypes.INTEGER
+    },
+    web:{
+        type: DataTypes.STRING
     }
 });
 
