@@ -1,6 +1,7 @@
-This document lists definitions of integers used in various models/
+This document lists definitions of integers used in various models
 
 # Offer
+```
 type: {
     0: service,
     1: offer (want to sell),
@@ -29,26 +30,29 @@ visibility:{
     1: public,
     2: private
 }
+```
 # Company
+```
 companyType:{
     0: admin,
     1: biogas plant,
     2: biomass producer,
     3: logistics
 }
-
-
+```
 # User
+```
 userlevel:{
     1: normal,
     2: premium,
     99: admin
 }
-
-
+```
 # Location
+```
 type:{
     1: company location,
     2: offer location,
     3: logistics terminal
 }
+```
