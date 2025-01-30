@@ -407,7 +407,8 @@ app.post("/creatematerial", async (req, res) => {
       description: body.description,
       type: body.type,
       quality: body.quality,
-      other: body.other
+      other: body.other,
+      locality: body.locality
     });
     res.json({"type":"result","result":"ok","message":material});
   }

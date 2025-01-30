@@ -18,6 +18,9 @@ const Material = sequelize.define('Material',{
     },
     other:{
         type: DataTypes.JSON
+    },
+    locality:{
+        type:DataTypes.INTEGER
     }
     
 });
