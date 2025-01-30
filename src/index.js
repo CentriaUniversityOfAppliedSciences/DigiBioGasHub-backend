@@ -372,6 +372,94 @@ app.post("/createoffer", async (req, res) => {
 });
 
 /*
+* @route POST /getoffers
+* @return {json} 
+  * @key type @value result
+  * @key result @value {json} offers
+*/
+
+app.post("/getoffers", async (req, res) => {
+  try{
+    const offers = await Offer.findAll({
+      
+    });
+    res.json({"type":"result","result":offers});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot get offers"});
+  }
+});
+
+/*
+* @route POST /creatematerial
+* @param {string} name
+* @param {string} description
+* @param {integer} type
+* @param {string} quality
+* @param {json} other
+*/
+app.post("/creatematerial", async (req, res) => {
+  try{
+    var body = req.body;
+    const material = await Material.create({
+      name: body.name,
+      description: body.description,
+      type: body.type,
+      quality: body.quality,
+      other: body.other
+    });
+    res.json({"type":"result","result":"ok","message":material});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot create material"});
+  }
+});
+
+/* 
+* @route POST /getmaterials
+* @return {json}
+*/
+
+app.post("/getmaterials", async (req, res) => {
+  try{
+    const materials = await Material.findAll({
+      
+    });
+    res.json({"type":"result","result":materials});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot get materials"});
+  }
+});
+
+/* 
+* @route POST /getoffersbycompany
+* @param {uuid} companyID
+* @return {json} 
+  * @key type @value result
+  * @key result @value {json} offers
+*/
+
+app.post("/getoffersbycompany", async (req, res) => {
+  try{
+    var body = req.body;
+    const offers = await Offer.findAll({
+      where:{
+        companyID: body.companyID
+      }
+    });
+    res.json({"type":"result","result":offers});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot get offers"});
+  }
+});
+
+/*
 * @route POST /register
 * @param {string} username
 * @param {string} password
