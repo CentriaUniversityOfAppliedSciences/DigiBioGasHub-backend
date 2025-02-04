@@ -56,3 +56,17 @@ type:{
     3: logistics terminal
 }
 ```
+
+#Material
+```
+type:{
+    0: unknown
+    1: straw
+    2: dung solid 
+    3: dung liquid
+    4: compressed biogas
+    5: liquid biogas
+    6: feedstock
+    
+}
+```
