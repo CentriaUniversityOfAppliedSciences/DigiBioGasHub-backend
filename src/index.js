@@ -460,7 +460,21 @@ app.post("/getoffersbycompany", async (req, res) => {
     res.status(500).json({"type":"result","result":"fail","message": "cannot get offers"});
   }
 });
-
+app.post("/getoffersbyid", async (req, res) => {
+  try{
+    var body = req.body;
+    const offers = await Offer.findOne({
+      where:{
+        id: body.id
+      }
+    });
+    res.json({"type":"result","result":offers});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot get offers"});
+  }
+});
 /*
 * @route POST /register
 * @param {string} username
