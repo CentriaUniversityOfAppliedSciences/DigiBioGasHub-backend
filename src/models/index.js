@@ -11,8 +11,8 @@ import Bids from './bids.js';
 
 //User.hasMany(UserCompany, { foreignKey: 'userID' });
 //UserCompany.belongsTo(User, { foreignKey: 'id' });
+Company.belongsToMany(User, { through: UserCompany, foreignKey: 'companyID' });
 User.belongsToMany(Company, { through: UserCompany, foreignKey: 'userID' });
-//Company.hasMany(User, { through: UserCompany, foreignKey: 'companyID' })
 
 //Company.hasMany(UserCompany, { foreignKey: 'companyID' });
 //UserCompany.belongsTo(Company, { foreignKey: 'id' });
@@ -29,7 +29,7 @@ Offer.belongsTo(User, {foreignKey:"creator"});
 //Company.hasMany(Location, { foreignKey: 'companyID' });
 Company.hasMany(Offer, { foreignKey:"companyID"});
 Contract.belongsTo(Offer, {foreignKey:"offerID"});
-Offer.hasOne(Contract, {foreignKey:"offerID"});
+Offer.hasMany(Contract, {foreignKey:"offerID"});
 //Offer.belongsTo(Company);
 
 

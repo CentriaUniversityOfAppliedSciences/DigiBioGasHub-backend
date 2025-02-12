@@ -54,6 +54,9 @@ const Offer = sequelize.define('Offer',{
     },
     visibility:{
         type: DataTypes.INTEGER
+    },
+    description:{
+        type: DataTypes.TEXT
     }
     
 });
