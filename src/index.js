@@ -20,7 +20,7 @@ app.use(helmet({
 }));
 app.disable('x-powered-by');
 import sequelize from './models/database.js';
-import { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids } from './models/index.js';
+import { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids, BlogPost } from './models/index.js';
 
 sequelize.sync({ force: false }).then(()=>{
   //console.log("created");
@@ -531,6 +531,32 @@ app.post("/stations", async (req, res) => {
   }
 });
 
+
+/*
+* @route POST /createblogpost
+* @param {string} title
+* @param {text} content
+* @param {string} image (optional)
+* @param {uuid} userID
+* @param {integer} blogPostType
+*/
+app.post("/createblogpost", async (req, res) => {
+  try{
+    var body = req.body;
+    const blogpost = await BlogPost.create({
+      title: body.title,
+      content: body.content,
+      image: body.image,
+      userID: body.userID,
+      blogPostType: body.blogPostType
+    });
+    res.json({"type":"result","result":"ok","message":blogpost});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "unable to  create blog post"});
+  }
+});
 
 
 
