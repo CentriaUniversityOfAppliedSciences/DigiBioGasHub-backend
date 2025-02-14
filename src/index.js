@@ -20,6 +20,7 @@ app.use(helmet({
 }));
 app.disable('x-powered-by');
 import sequelize from './models/database.js';
+import { Op } from 'sequelize';
 import { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids, BlogPost } from './models/index.js';
 
 sequelize.sync({ force: false }).then(()=>{
@@ -71,8 +72,7 @@ app.use(bodyParser.json());
 */
 
 app.use(async (req, res, next) => {
-  console.log(req.url);
-  console.log(req.method);
+
   if (req.url == '/login' || req.url == '/register' || req.url == '/stations'){ 
     if (req.method == 'POST' || req.method == 'GET'){
       await Logs.create({
@@ -85,8 +85,6 @@ app.use(async (req, res, next) => {
     next();
   }
   else{
-    console.log("else");
-    console.log(req);
     const token = req.headers['authorization'];
     if (!token) {
       return res.status(401).json({ "type":"result","result":"fail","message": 'error' });
@@ -230,6 +228,8 @@ app.post("/login", async (req, res) => {
 
 app.post("/createcompany", async (req, res) => {
   try{
+    const token = req.headers['authorization'];
+    var [result,decoded] = await secTest(token);
     var body = req.body;
     const company = await Company.create({
       name: body.name,
@@ -239,8 +239,14 @@ app.post("/createcompany", async (req, res) => {
       email: body.email,
       phone: body.phone,
       companyType: body.companyType,
-      hubID: body.hubID,
+      hubID: "1",
       web: body.web
+    });
+    await UserCompany.create({
+
+      userID: decoded.id,
+      companyID: company.id,
+      userlevel: 1
     });
     res.json({"type":"result","result":"ok","message":company});
   }
@@ -249,6 +255,39 @@ app.post("/createcompany", async (req, res) => {
     res.status(500).json({"type":"result","result":"fail","message": "cannot create company"});
   }
 });
+
+/*
+* @route POST /getusercompanies
+* @where user.id = jwt_token.id
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} companies
+*/
+app.post("/getusercompanies", async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  try{
+    const user = await User.findOne({
+      where:{
+        id: decoded.id
+      },
+    });
+    user.getCompanies().then((companies) => {
+      res.json({"type":"result","result":"ok", "message":companies});
+    }).
+    catch((error) => {
+      console.error(error);
+      res.status(500).json({"type":"result","result":"fail","message": "cannot getusercompanies"});
+       
+    });
+    
+  }
+  catch (error) { 
+    console.error(error); 
+    res.status(500).json({"type":"result","result":"fail","message": "cannot getusercompanies"});
+  }
+})
 
 /*
 * @route POST /updatecompany
@@ -324,6 +363,30 @@ app.post("/createlocation", async (req, res) => {
 });
 
 /*
+* @route POST /getlocations
+* @param {uuid} companyID
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} locations
+*/
+
+app.post("/getlocations", async (req, res) => {
+  try{
+    const locations = await Location.findAll({
+      where:{
+        companyID: req.body.companyID
+      }
+    });
+    res.json({"type":"result","result":"ok","message":locations});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot get locations"});
+  }
+});
+
+/*
 * @route POST /createoffer
 * @param {integer} type
 * @param {integer} materialID
@@ -339,6 +402,7 @@ app.post("/createlocation", async (req, res) => {
 * @param {integer} status
 * @param {integer} cargoType
 * @param {integer} visibility
+* @param {string} description
 * @return {json} 
   * @key type @value result
   * @key result @value ["ok", "fail"]
@@ -348,23 +412,35 @@ app.post("/createlocation", async (req, res) => {
 app.post("/createoffer", async (req, res) => {
   try{
     var body = req.body;
-    const offer = await Offer.create({
-      type: body.type,
-      materialID: body.materialID,
-      companyID: body.companyID,
-      locationID: body.locationID,
-      unit: body.unit,
-      price: body.price,
-      amount: body.amount,
-      startDate: body.startDate,
-      endDate: body.endDate,
-      availableAmount: body.availableAmount,
-      creator: body.creator,
-      status: body.status,
-      cargoType: body.cargoType,
-      visibility: body.visibility
-    });
-    res.json({"type":"result","result":"ok","message":offer});
+    const token = req.headers['authorization'];
+    
+    try {
+        var [result,decoded] = await secTest(token);
+
+        const offer = await Offer.create({
+          type: body.type,
+          materialID: body.materialID,
+          companyID: body.companyID,
+          locationID: body.locationID,
+          unit: body.unit,
+          price: body.price,
+          amount: body.amount,
+          startDate: body.startDate,
+          endDate: body.endDate,
+          availableAmount: body.amount,
+          creator: decoded.id,
+          status: 1,
+          cargoType: body.cargoType,
+          visibility: body.visibility,
+          description: body.description
+        });
+        res.json({"type":"result","result":"ok","message":offer});
+    }
+    catch (error2) {
+      console.log(error2);
+      res.status(500).json({"type":"result","result":"fail","message": "cannot create offer"});
+    };
+    
   }
   catch (error) {
     console.error(error);
@@ -374,16 +450,29 @@ app.post("/createoffer", async (req, res) => {
 
 /*
 * @route POST /getoffers
+* @where visibility = 1, status = 1, endDate >= now, startDate <= now
 * @return {json} 
   * @key type @value result
-  * @key result @value {json} offers
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} offers
 */
 
 app.post("/getoffers", async (req, res) => {
   try{
-    const offers = await Offer.findAll({ include: [Company, Material, Location]      
+    const offers = await Offer.findAll({ 
+      include: [Company, Material, Location],
+      where:{
+        visibility: 1,
+        status: 1,
+        endDate: {
+          [Op.gte]: new Date()
+        },
+        startDate: {
+          [Op.lte]: new Date()
+        }
+      }
     });
-    res.json({"type":"result","result":offers});
+    res.json({"type":"result","result":"ok", "message":offers});
   }
   catch (error) {
     console.error(error);
@@ -399,6 +488,10 @@ app.post("/getoffers", async (req, res) => {
 * @param {string} quality
 * @param {json} other
 * @param {string} locality
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} material
 */
 app.post("/creatematerial", async (req, res) => {
   try{
@@ -422,14 +515,18 @@ app.post("/creatematerial", async (req, res) => {
 /* 
 * @route POST /getmaterials
 * @return {json}
+  * @key type @value result
+  * @key result @value {json} materials
 */
 
 app.post("/getmaterials", async (req, res) => {
   try{
     const materials = await Material.findAll({
-      
+      where:{
+        locality: req.body.locality
+      }
     });
-    res.json({"type":"result","result":materials});
+    res.json({"type":"result","result":"ok","message":materials});
   }
   catch (error) {
     console.error(error);
@@ -442,7 +539,8 @@ app.post("/getmaterials", async (req, res) => {
 * @param {uuid} companyID
 * @return {json} 
   * @key type @value result
-  * @key result @value {json} offers
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} offers
 */
 
 app.post("/getoffersbycompany", async (req, res) => {
@@ -453,13 +551,25 @@ app.post("/getoffersbycompany", async (req, res) => {
         companyID: body.companyID
       }
     });
-    res.json({"type":"result","result":offers});
+    res.json({"type":"result","result":"ok", "message":offers});
   }
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot get offers"});
   }
 });
+
+/*
+
+* @route POST /getoffersbyid
+* @where id = req.body.id
+* @param {uuid} id
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} offer
+*/
+
 app.post("/getoffersbyid", async (req, res) => {
   try{
     var body = req.body;
@@ -468,7 +578,7 @@ app.post("/getoffersbyid", async (req, res) => {
         id: body.id
       }
     });
-    res.json({"type":"result","result":offers});
+    res.json({"type":"result","result":"ok", "message":offers});
   }
   catch (error) {
     console.error(error);
