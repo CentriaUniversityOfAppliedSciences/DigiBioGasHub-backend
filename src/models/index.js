@@ -8,6 +8,7 @@ import Contract from './contract.js';
 import Offer from './offer.js';
 import Material from './material.js';
 import Bids from './bids.js';
+import BlogPost from './BlogPost.js';
 
 //User.hasMany(UserCompany, { foreignKey: 'userID' });
 //UserCompany.belongsTo(User, { foreignKey: 'id' });
@@ -32,5 +33,6 @@ Contract.belongsTo(Offer, {foreignKey:"offerID"});
 Offer.hasMany(Contract, {foreignKey:"offerID"});
 //Offer.belongsTo(Company);
 
+User.hasMany(BlogPost, { foreignKey: 'userID' });
 
-export { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids };
+export { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids, BlogPost};
