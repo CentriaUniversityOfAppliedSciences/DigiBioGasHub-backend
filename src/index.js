@@ -669,6 +669,37 @@ app.post("/createblogpost", async (req, res) => {
 });
 
 
+/*
+* @route POST /updateblogpost
+* @param {uuid} postID
+* @param {string} title
+* @param {text} content 
+* @param {string} image
+* @param {integer} blogPostType
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} updated blog post
+*/
+app.post("/updateblogpost", async (req, res) => {
+  try {
+    var body = req.body;
+    const blogpost  = await BlogPost.update({
+      title: body.title,
+      content: body.content,
+      image: body.image,
+      blogPostType: body.blogPostType
+    }, {
+      where: {
+        postID: body.postID
+      }
+    });
+    res.json({ "type": "result", "result": "ok", "message": blogpost });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "unable to update blog post"});
+  }
+});
 
 
 
