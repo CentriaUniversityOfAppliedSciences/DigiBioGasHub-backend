@@ -684,7 +684,7 @@ app.post("/createblogpost", async (req, res) => {
 app.post("/updateblogpost", async (req, res) => {
   try {
     var body = req.body;
-    const blogpost  = await BlogPost.update({
+    const [numberOfAffectedRows, blogpost]  = await BlogPost.update({
       title: body.title,
       content: body.content,
       image: body.image,
@@ -692,9 +692,14 @@ app.post("/updateblogpost", async (req, res) => {
     }, {
       where: {
         postID: body.postID
-      }
+      },
+      returning: true
     });
-    res.json({ "type": "result", "result": "ok", "message": blogpost });
+    if (numberOfAffectedRows > 0) {
+      res.json({ "type": "result", "result": "ok", "message": blogpost[0] });
+    } else {
+      res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "unable to update blog post"});
