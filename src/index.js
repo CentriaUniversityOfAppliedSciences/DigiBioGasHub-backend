@@ -707,6 +707,35 @@ app.post("/updateblogpost", async (req, res) => {
 });
 
 
+/*
+* @route POST /getblogpost
+* @param {uuid} postID
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} blog post
+*/
+app.post("/getblogpost", async (req, res) => {
+
+  try {
+    var body = req.body;
+    const blogpost = await BlogPost.findOne({
+      where: {
+        postID: body.postID
+      }
+    });
+    if (blogpost != null) {
+
+      res.json({ "type": "result", "result": "ok", "message": blogpost });
+
+    } else {
+      res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get blog post" });
+  }
+});
 
 
 
