@@ -738,6 +738,46 @@ app.post("/getblogpost", async (req, res) => {
 });
 
 
+/*
+* @route POST /getallblogposts
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} blog posts
+*/
+app.post("/getallblogposts", async (req, res) => {
+  try {
+    const blogposts = await BlogPost.findAll();
+    res.json({ "type": "result", "result": "ok", "message": blogposts });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get blog posts" });
+  }
+}
+);
+
+
+/*
+* @route POST /getlatest4blogposts
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} blog posts
+*/
+app.post("/getlatest4blogposts", async (req, res) => {
+  try {
+    const blogposts = await BlogPost.findAll({
+      limit: 4,
+      order: [['createdAt', 'DESC']]
+    });
+    res.json({ "type": "result", "result": "ok", "message": blogposts });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get blog posts" });
+  }
+}
+);
+
 
 //these must be at the bottom but before listen !!!!
 
