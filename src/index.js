@@ -334,6 +334,118 @@ app.post("/updatecompany", async (req, res) => {
   }
 });
 
+app.post("/getuser", async (req, res) => {
+  try{
+    var body = req.body;
+    const user = await User.findOne({
+      where:{
+        id: body.id
+      }
+    });
+    res.json({"type":"result","result":"ok","message":user});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot get user"});
+  }
+});
+app.post("/updateuser", async (req, res) => {
+  try{
+    var body = req.body;
+    const user = await User.update({
+      name: body.name,
+      email: body.email,
+      phone: body.phone,
+      address: body.address,
+    },{
+      where:{
+        id: body.id
+      }
+    });
+    res.json({"type":"result","result":"ok","message":user});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot update user"});
+  }
+});
+app.delete("/deleteuser", async (req, res) => {
+  let tempID = null;
+  try{
+    var body = req.body;
+    const user = await User.destroy({
+      where:{
+        id: body.id
+      }
+    }).then(()  => {
+      UserCompany.findAll({
+        where:{
+          userID: body.id
+        }
+      }).then((usercompanies) => {
+        usercompanies.forEach((usercompany) => {
+          tempID = usercompany.dataValues.id;
+          UserCompany.destroy({
+            where:{
+              userID: body.id
+            }
+          });
+          if (tempID != null){
+            const comp = UserCompany.findOne({
+              where:{
+                id: tempID
+              }
+            });
+            if (comp){
+              UserCompany.update({
+                userlevel: 23,
+                where:{
+                  companyID: comp.dataValues.companyID
+                }
+              })
+            }
+            else{
+              Company.destroy({
+                where:{
+                  id: tempID
+                }
+              });
+            }
+          }
+        });
+      });
+    }
+    );
+    res.json({"type":"result","result":"ok","message":user});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot delete user"});
+  }
+});
+app.delete("/deletecompany", async (req, res) => {
+  try{
+    var body = req.body;
+    const company = await Company.destroy({
+      where:{
+        id: body.id
+      }
+    }).then(() => { 
+      UserCompany.destroy({
+        where:{
+          companyID: body.id
+        }
+      });
+    });
+    res.json({"type":"result","result":"ok","message":company});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot delete company"});
+  }
+}
+);
+
 /*
 * @route POST /createlocation
 * @param {string} name
