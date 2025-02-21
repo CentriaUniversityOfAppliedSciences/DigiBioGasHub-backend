@@ -340,7 +340,8 @@ app.post("/getuser", async (req, res) => {
     const user = await User.findOne({
       where:{
         id: body.id
-      }
+      },
+      attributes: { exclude: ['password'] }
     });
     res.json({"type":"result","result":"ok","message":user});
   }
