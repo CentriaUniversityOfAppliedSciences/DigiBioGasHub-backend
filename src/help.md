@@ -76,3 +76,12 @@ type:{
     
 }
 ```
+
+# BlogPost
+```
+type:{
+    0: unpublished
+    1: published
+    2: draft  
+}
+```
