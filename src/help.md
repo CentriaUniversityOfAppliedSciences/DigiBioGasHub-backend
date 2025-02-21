@@ -34,10 +34,13 @@ visibility:{
 # Company
 ```
 companyType:{
-    0: admin,
-    1: biogas plant,
-    2: biomass producer,
-    3: logistics
+    0: Admin,
+    1: Biogas plant (farm),
+    2: Biogas plant,
+    3: Biomass producer (farm),
+    4: Biomass producer,
+    5: Logistics,
+    6: Energy sector
 }
 ```
 # User
@@ -45,6 +48,9 @@ companyType:{
 userlevel:{
     1: normal,
     2: premium,
+    20: company member,
+    21: premium company member,
+    22: company admin/owner
     99: admin
 }
 ```

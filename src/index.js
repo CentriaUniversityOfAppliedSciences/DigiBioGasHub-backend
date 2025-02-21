@@ -241,12 +241,54 @@ app.post("/createcompany", async (req, res) => {
       companyType: body.companyType,
       hubID: body.hubID,
       web: body.web
+    }).then((company) => { 
+      UserCompany.create({
+        userID: body.userID,
+        companyID: company.id,
+        userlevel: 23,
+        CompanyId: company.id
+     });
     });
+    
     res.json({"type":"result","result":"ok","message":company});
+    
   }
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot create company"});
+  }
+});
+
+/*
+* @route POST /getusercompanies
+* @param {uuid} userID
+* @return {json}
+*/
+app.post("/getusercompanies", async (req, res) => {
+  try{
+    var body = req.body;
+    const companies = await UserCompany.findAll({
+      where:{
+        userID: body.userID
+      }
+    }).then(async (companies) => {
+      
+      var companyList = [];
+      for (var i = 0; i < companies.length; i++){
+        var company = await Company.findOne({
+          where:{
+            id: companies[i].companyID
+          }
+        });
+        companyList.push(company);
+      }
+      return companyList;
+    });
+    res.json({"type":"result","result":companies});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot get companies"});
   }
 });
 
