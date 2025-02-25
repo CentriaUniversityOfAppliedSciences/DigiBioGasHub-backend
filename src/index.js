@@ -895,6 +895,34 @@ app.post("/getlatest4blogposts", async (req, res) => {
 );
 
 
+/*
+* @route POST /deleteblogpost
+* @param {uuid} postID
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+*/
+app.post("/deleteblogpost", async (req, res) => {
+  try {
+    var body = req.body;
+    const numberOfDeletedRows = await BlogPost.destroy({
+      where: {
+        postID: body.postID
+      }
+    });
+    if (numberOfDeletedRows > 0) {
+      res.json({ "type": "result", "result": "ok" });
+    } else {
+      res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to delete blog post" });
+  }
+}
+);
+
+
 //these must be at the bottom but before listen !!!!
 
 /*app.use((req, res) => { //no redirects in use so commented
