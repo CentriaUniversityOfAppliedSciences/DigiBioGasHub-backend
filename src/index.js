@@ -899,6 +899,68 @@ app.post("/getlatest4blogposts", async (req, res) => {
 
 
 /*
+* @route POST /publishblogpost
+* @param {uuid} postID
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+*/
+app.post("/publishblogpost", async (req, res) => {
+  try {
+    var body = req.body;
+    const [numberOfAffectedRows, blogpost] = await BlogPost.update({
+      blogPostType: 1
+    }, {
+      where: {
+        postID: body.postID
+      },
+      returning: true
+    });
+    if (numberOfAffectedRows > 0) {
+      res.json({ "type": "result", "result": "ok" });
+    } else {
+      res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to change blog post status" });
+  }
+}
+);
+
+
+/*
+* @route POST /unpublishblogpost
+* @param {uuid} postID
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+*/
+app.post("/unpublishblogpost", async (req, res) => {
+  try {
+    var body = req.body;
+    const [numberOfAffectedRows, blogpost] = await BlogPost.update({
+      blogPostType: 0
+    }, {
+      where: {
+        postID: body.postID
+      },
+      returning: true
+    });
+    if (numberOfAffectedRows > 0) {
+      res.json({ "type": "result", "result": "ok" });
+    } else {
+      res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to change blog post status" });
+  }
+}
+);
+
+
+/*
 * @route POST /deleteblogpost
 * @param {uuid} postID
 * @return {json} 
