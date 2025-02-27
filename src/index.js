@@ -883,6 +883,9 @@ app.post("/getallblogposts", async (req, res) => {
 app.post("/getlatest4blogposts", async (req, res) => {
   try {
     const blogposts = await BlogPost.findAll({
+      where: {
+        blogPostType: 1
+      },
       limit: 4,
       order: [['createdAt', 'DESC']]
     });
