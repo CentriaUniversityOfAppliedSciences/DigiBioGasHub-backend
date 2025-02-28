@@ -899,6 +899,29 @@ app.post("/getlatest4blogposts", async (req, res) => {
 
 
 /*
+* @route POST /getpublishedblogposts
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} blog posts
+*/
+app.post("/getallpublishedblogposts", async (req, res) => {
+  try {
+    const blogposts = await BlogPost.findAll({
+      where: {
+        blogPostType: 1
+      }
+    });
+    res.json({ "type": "result", "result": "ok", "message": blogposts });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get blog posts" });
+  }
+}
+);
+
+
+/*
 * @route POST /publishblogpost
 * @param {uuid} postID
 * @return {json} 
