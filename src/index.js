@@ -352,26 +352,33 @@ app.post("/getuser", async (req, res) => {
 });
 
 
-/* 
-* @route POST /getallusers
+/*
+* @route POST /getlimitedusers
+* @param {integer} page
+* @param {integer} limit
 * @return {json}
   * @key type @value result
   * @key result @value {json} users
 */
 
-app.post("/getallusers", async (req, res) => {
-  try{
+app.post("/getlimitedusers", async (req, res) => {
+  try {
+    let { page, limit } = req.body;
     const users = await User.findAll({
-      attributes: { exclude: ['password'] }
+      offset: page * limit,
+      limit: limit,
+      attributes: { exclude: ["password", "authMethod", "language"] },
     });
-    res.json({"type":"result","result":"ok","message":users});
-  }
-  catch (error) {
+
+    const totalUsers = await User.count();
+
+    res.json({ type: "result", result: "ok", message: users, total: totalUsers });
+  } catch (error) {
     console.error(error);
-    res.status(500).json({"type":"result","result":"fail","message": "cannot get users"});
+    res.status(500).json({ type: "result", result: "fail", message: "cannot get users" });
   }
-}
-);
+});
+
 
 
 app.post("/updateuser", async (req, res) => {
