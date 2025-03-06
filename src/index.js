@@ -401,6 +401,46 @@ app.post("/updateuser", async (req, res) => {
     res.status(500).json({"type":"result","result":"fail","message": "cannot update user"});
   }
 });
+
+
+/* update user with admin rights */
+/* @route POST admim/updateuser
+* @param {uuid} id
+* @param {string} username
+* @param {string} name
+* @param {string} email
+* @param {string} phone
+* @param {integer} userlevel
+* @param {integer} hubID
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value updated user
+*/
+app.post("/admin/updateuser", async (req, res) => {
+  try{
+    var body = req.body;
+    const user = await User.update({
+      username: body.username,
+      name: body.name,
+      email: body.email,
+      phone: body.phone,
+      userlevel: body.userlevel,
+      hubID: body.hubID
+    },{
+      where:{
+        id: body.id
+      }
+    });
+    res.json({"type":"result","result":"ok","message":user});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot update user"});
+  }
+});
+
+
 app.delete("/deleteuser", async (req, res) => {
   let tempID = null;
   try{
