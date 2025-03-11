@@ -364,6 +364,16 @@ app.post("/getuser", async (req, res) => {
 app.post("/getlimitedusers", async (req, res) => {
   try {
     let { page, limit } = req.body;
+    const allowedLimits = [5, 25, 50, 75, 100];
+
+    if (!allowedLimits.includes(limit)) {
+      return res.status(400).json({
+        type: "result",
+        result: "fail",
+        message: "Invalid limit. Allowed values are 5, 25, 50, 75, 100.",
+      });
+    }
+
     const users = await User.findAll({
       offset: page * limit,
       limit: limit,
