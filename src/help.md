@@ -42,6 +42,12 @@ companyType:{
     5: Logistics,
     6: Energy sector
 }
+
+companyStatus:{
+    0: unverified,
+    1: verified
+    2: disabled
+}
 ```
 # User
 ```
