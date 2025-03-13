@@ -239,6 +239,7 @@ app.post("/createcompany", async (req, res) => {
       email: body.email,
       phone: body.phone,
       companyType: body.companyType,
+      companyStatus: "0",
       hubID: "1",
       web: body.web
     }).then((company) => { 
@@ -291,6 +292,26 @@ app.post("/getusercompanies", async (req, res) => {
     res.status(500).json({"type":"result","result":"fail","message": "cannot getusercompanies"});
   }
 })
+
+
+/*
+* @route POST /admin/getallcompanies
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} companies
+*/
+app.post("/admin/getallcompanies", async (req, res) => {
+  try {
+    const companies = await Company.findAll();
+    res.json({ "type": "result", "result": "ok", "message": companies });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get companies" });
+  }
+}
+);
+
 
 /*
 * @route POST /updatecompany
