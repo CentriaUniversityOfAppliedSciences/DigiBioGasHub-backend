@@ -355,6 +355,41 @@ app.post("/updatecompany", async (req, res) => {
   }
 });
 
+
+/*
+* @route POST admin/updatecompanystatus
+* @param {uuid} id
+* @param {integer} status
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+*/
+
+app.post("/admin/updatecompanystatus", async (req, res) => {
+  try {
+    const { id, status } = req.body;
+
+    if (!id || status === undefined) {
+      return res.status(400).json({ result: "error", "message": "Company ID and status are required" });
+    }
+
+    const [updated] = await Company.update(
+      { companyStatus: status },
+      { where: { id } }
+    );
+
+    if (updated) {
+      return res.json({ "type": "result", "result": "ok", "message": "Company status updated successfully" });
+    } else {
+      return res.status(404).json({ result: "error", "message": "Company not found" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ "type": "result", "result": "fail", "message": "cannot update company status" });
+  }
+});
+
+
 app.post("/getuser", async (req, res) => {
   try{
     var body = req.body;
