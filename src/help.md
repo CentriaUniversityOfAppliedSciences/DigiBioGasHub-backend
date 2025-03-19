@@ -34,7 +34,7 @@ visibility:{
 # Company
 ```
 companyType:{
-    0: Admin,
+    0: Service Provider,
     1: Biogas plant (farm),
     2: Biogas plant,
     3: Biomass producer (farm),
