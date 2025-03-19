@@ -36,7 +36,11 @@ const Company = sequelize.define('Company',{
     },
     companyType:{
         type: DataTypes.SMALLINT,
-    },hubID:{
+    },
+    companyStatus:{
+        type: DataTypes.SMALLINT,
+    }
+    ,hubID:{
         type: DataTypes.INTEGER
     },
     web:{
