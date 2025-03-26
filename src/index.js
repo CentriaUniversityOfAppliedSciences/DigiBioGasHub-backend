@@ -714,6 +714,11 @@ app.post("/getoffers", async (req, res) => {
   try{
     const offers = await Offer.findAll({ 
       include: [Company, Material, Location],
+      attributes: {
+        include: [
+          [sequelize.col('Offer.type'), 'category']
+        ]
+      },
       where:{
         visibility: 1,
         status: 1,
