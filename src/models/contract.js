@@ -5,7 +5,7 @@ import  sequelize  from './database.js';
 
 const Contract = sequelize.define('Contract',{
     offerID:{
-        type:DataTypes.INTEGER,
+        type:DataTypes.UUID,
         allowNull:false
     },
     buyer:{

@@ -3,7 +3,7 @@ import { DataTypes } from 'sequelize';
 import  sequelize  from './database.js';
 
 
-const Material = sequelize.define('Material',{
+const Files = sequelize.define('Files',{
     id:{
         type: DataTypes.UUID,
         defaultValue:DataTypes.UUIDV4,
@@ -14,21 +14,15 @@ const Material = sequelize.define('Material',{
     name:{
         type:DataTypes.TEXT
     },
-    description:{
-        type:DataTypes.TEXT
-    },
     type:{
         type:DataTypes.INTEGER
     },
-    quality:{
-        type:DataTypes.TEXT
+    parent:{
+        type:DataTypes.UUID
     },
-    other:{
-        type: DataTypes.JSON
-    },
-    locality:{
+    data:{
         type:DataTypes.TEXT
     }
     
 });
-export default Material;
+export default Files;
