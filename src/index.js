@@ -24,7 +24,7 @@ import { Op } from 'sequelize';
 import { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids, BlogPost, Files } from './models/index.js';
 import e from 'express';
 
-sequelize.sync({ force: false }).then(()=>{
+sequelize.sync({ alter: false }).then(()=>{ // change alter:true if you want to update the database schema, fill in missing values in db manually, not for production
   //console.log("created");
 }).catch((e)=>{
   console.log(e);
@@ -275,7 +275,8 @@ app.post("/createcompany", async (req, res) => {
             latitude: coords.data.lat,
             longitude: coords.data.lng,
             type: 1,
-            companyID: company.id
+            companyID: company.id,
+            parent: company.id
           });
         }
         
@@ -871,6 +872,16 @@ app.post("/createoffer", async (req, res) => {
             data: body.image64
           });
         }
+        if (body.location != null && body.location != undefined){
+          const location = await Location.create({
+            name: offer.id,
+            latitude: body.location.lat,
+            longitude: body.location.lng,
+            type: 2,
+            companyID: body.companyID,
+            parent: offer.id
+          });
+        }
         res.json({"type":"result","result":"ok","message":offer});
     }
     catch (error2) {
@@ -900,7 +911,7 @@ app.post("/getoffers", async (req, res) => {
       include: [Company, Material, Location, Files],
       attributes: {
         include: [
-          [sequelize.col('Offer.type'), 'category']
+          [sequelize.col('Material.type'), 'category']
         ]
       },
       where:{
