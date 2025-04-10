@@ -21,6 +21,9 @@ const Location = sequelize.define('Location',{
         type: DataTypes.BIGINT,
         allowNull: false,
     },
+    parent:{
+        type: DataTypes.UUID,
+    },
     companyID:{
         type: DataTypes.UUID,
         allowNull: false,

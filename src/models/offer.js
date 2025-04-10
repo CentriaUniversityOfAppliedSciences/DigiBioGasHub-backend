@@ -4,11 +4,18 @@ import  sequelize  from './database.js';
 
 
 const Offer = sequelize.define('Offer',{
+    id:{
+        type: DataTypes.UUID,
+        defaultValue:DataTypes.UUIDV4,
+        primaryKey:true,
+        allowNull: false,
+        unique: true,
+    },
     type:{
         type: DataTypes.INTEGER
     },
     materialID:{
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false
     },
     companyID: {

@@ -69,7 +69,7 @@ type:{
 }
 ```
 
-#Material
+# Material
 ```
 type:{
     0: unknown
@@ -79,6 +79,7 @@ type:{
     4: compressed biogas
     5: liquid biogas
     6: feedstock
+    7: digestate / mädätysjäännös
     
 }
 ```
@@ -89,5 +90,15 @@ type:{
     0: unpublished
     1: published
     2: draft  
+}
+```
+
+# Files
+```
+type:{
+    0: Company
+    1: Offer
+    2: Material
+    3: User
 }
 ```

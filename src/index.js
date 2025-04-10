@@ -21,9 +21,10 @@ app.use(helmet({
 app.disable('x-powered-by');
 import sequelize from './models/database.js';
 import { Op } from 'sequelize';
-import { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids, BlogPost } from './models/index.js';
+import { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids, BlogPost, Files } from './models/index.js';
+import e from 'express';
 
-sequelize.sync({ force: false }).then(()=>{
+sequelize.sync({ alter: false }).then(()=>{ // change alter:true if you want to update the database schema, fill in missing values in db manually, not for production
   //console.log("created");
 }).catch((e)=>{
   console.log(e);
@@ -63,8 +64,8 @@ var corsOptionsDelegate = async function (req,callback) {
   //}
 }
 app.use(cors(corsOptionsDelegate));
-app.use(express.json());
-app.use(bodyParser.json());
+app.use(express.json({limit: '50mb' }));
+app.use(bodyParser.json({limit: '50mb' }));
 
 /*
 *  checking jwt token, if token is not present or invalid, returns 401
@@ -72,7 +73,6 @@ app.use(bodyParser.json());
 */
 
 app.use(async (req, res, next) => {
-
   if (req.url == '/login' || req.url == '/register' || req.url == '/stations'){ 
     if (req.method == 'POST' || req.method == 'GET'){
       await Logs.create({
@@ -142,6 +142,25 @@ async function secTest(token){
   try{
     const decoded = jwt.verify(token, process.env.JWT_KEY);
     return [true,decoded];
+  }
+  catch(error){
+    return [false,null];
+  }
+}
+
+/*
+* function to check if user is admin, uses jwt.verify
+*/
+
+async function adminTest(token){
+  try{
+    const decoded = jwt.verify(token, process.env.JWT_KEY);
+    if (decoded.userlevel == 99){
+      return [true,decoded];
+    }
+    else{
+      return [false,decoded];
+    }
   }
   catch(error){
     return [false,null];
@@ -248,10 +267,25 @@ app.post("/createcompany", async (req, res) => {
         companyID: company.id,
         userlevel: 23,
         CompanyId: company.id
+     }).then((usercompany) => {
+      getCoords(body.address, body.zipcode, body.city).then((coords) => {
+        if (coords != null && coords != undefined){
+          Location.create({
+            name: body.name,
+            latitude: coords.data.lat,
+            longitude: coords.data.lng,
+            type: 1,
+            companyID: company.id,
+            parent: company.id
+          });
+        }
+        
+      });
+      res.json({"type":"result","result":"ok","message":company});
      });
     });
     
-    res.json({"type":"result","result":"ok","message":company});
+    
     
   }
   catch (error) {
@@ -259,6 +293,81 @@ app.post("/createcompany", async (req, res) => {
     res.status(500).json({"type":"result","result":"fail","message": "cannot create company"});
   }
 });
+
+/*
+* function to get coordinates from address, zipcode and city
+* @param {string} address
+* @param {string} zipcode
+* @param {string} city
+
+*/
+
+function getCoords(address, zipcode, city){
+  
+  
+	return new Promise(async (resolve, reject) => {
+		try {
+			axios.get('https://avoin-paikkatieto.maanmittauslaitos.fi/geocoding/v2/pelias/search', {
+				params: {
+					"text": address + " " + zipcode + " " + city,
+					"sources": "interpolated-road-addresses",
+					"lang": "fi",
+					"api-key": process.env.MML_API_KEY
+				}
+			}).then(async (x) => {
+				console.log(x);
+				if (x.status == 200 && x.data != undefined && x.data.features != undefined && x.data.features.length > 0 && x.data.features[0].geometry != undefined) {
+					const result = x.data.features[0].geometry.coordinates;//proj4("EPSG:3067", "EPSG:4326", x.data.features[0].geometry.coordinates);
+					const obj = { lat: result[1], lng: result[0] };
+					//res.send({ "data": x.data, "result": "ok" });
+					resolve({ "data": obj, "result": "ok" });
+				}
+				else if (x.data == undefined || x.data.features == undefined || x.data.features.length == 0 || x.data.features[0].geometry == undefined) {
+					try {
+						axios.get('https://avoin-paikkatieto.maanmittauslaitos.fi/geocoding/v2/pelias/search', {
+							params: {
+								"text": address,
+								"sources": "addresses",
+								"lang": "fi",
+								"api-key": process.env.MML_API_KEY
+							}
+						}).then(async (x) => {
+							console.log(x);
+							if (x.status == 200 && x.data != undefined && x.data.features != undefined && x.data.features.length > 0 && x.data.features[0].geometry != undefined) {
+								const result = x.data.features[0].geometry.coordinates;//proj4("EPSG:3067", "EPSG:4326", x.data.features[0].geometry.coordinates);
+								const obj = { lat: result[1], lng: result[0] };
+								//res.send({ "data": x.data, "result": "ok" });
+								resolve({ "data": obj, "result": "ok" });
+							}
+							else if (x.data == undefined || x.data.features == undefined || x.data.features.length == 0 || x.data.features[0].geometry == undefined) {
+
+								console.log("Address not found for address: " + address);
+								//res.send({ "data": "address not found" });
+								resolve({ "data": "address not found", "result": "nfound" });
+							}
+							else {
+								reject(x);
+							}
+						}).catch((e) => {
+							reject(e);
+						})
+					}
+					catch (e) {
+						reject(e);
+				  }
+        }
+				else {
+					reject(x);
+				}
+			}).catch((e) => {
+				reject(e);
+			})
+		}
+		catch (e) {
+			reject(e);
+		}
+	});
+}
 
 /*
 * @route POST /getusercompanies
@@ -291,7 +400,7 @@ app.post("/getusercompanies", async (req, res) => {
     console.error(error); 
     res.status(500).json({"type":"result","result":"fail","message": "cannot getusercompanies"});
   }
-})
+});
 
 
 /*
@@ -302,15 +411,20 @@ app.post("/getusercompanies", async (req, res) => {
   * @key message @value if fail {string} error message, if ok {json} companies
 */
 app.post("/admin/getallcompanies", async (req, res) => {
-  try {
-    const companies = await Company.findAll();
-    res.json({ "type": "result", "result": "ok", "message": companies });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get companies" });
-  }
-}
-);
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (!result[0]) {
+      try {
+        const companies = await Company.findAll();
+        res.json({ "type": "result", "result": "ok", "message": companies });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get companies" });
+      }
+    } else {
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
 
 
 /*
@@ -366,29 +480,45 @@ app.post("/updatecompany", async (req, res) => {
 */
 
 app.post("/admin/updatecompanystatus", async (req, res) => {
-  try {
-    const { id, status } = req.body;
-
-    if (!id || status === undefined) {
-      return res.status(400).json({ result: "error", "message": "Company ID and status are required" });
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        const { id, status } = req.body;
+    
+        if (!id || status === undefined) {
+          return res.status(400).json({ result: "error", "message": "Company ID and status are required" });
+        }
+    
+        const [updated] = await Company.update(
+          { companyStatus: status },
+          { where: { id } }
+        );
+    
+        if (updated) {
+          return res.json({ "type": "result", "result": "ok", "message": "Company status updated successfully" });
+        } else {
+          return res.status(404).json({ result: "error", "message": "Company not found" });
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "cannot update company status" });
+      }
     }
-
-    const [updated] = await Company.update(
-      { companyStatus: status },
-      { where: { id } }
-    );
-
-    if (updated) {
-      return res.json({ "type": "result", "result": "ok", "message": "Company status updated successfully" });
-    } else {
-      return res.status(404).json({ result: "error", "message": "Company not found" });
+    else{
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ "type": "result", "result": "fail", "message": "cannot update company status" });
-  }
+  });
+  
 });
 
+/*
+* @route POST /getuser
+* @param {uuid} id
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} user
+*/
 
 app.post("/getuser", async (req, res) => {
   try{
@@ -445,22 +575,40 @@ app.post("/getlimitedusers", async (req, res) => {
   }
 });
 
-
+/* user updates their own profile, uses jwt token for user id */
+/* @route POST /updateuser
+* @param {string} name
+* @param {string} email
+* @param {string} phone
+* @param {string} address
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value updated user
+*/
 
 app.post("/updateuser", async (req, res) => {
   try{
     var body = req.body;
-    const user = await User.update({
-      name: body.name,
-      email: body.email,
-      phone: body.phone,
-      address: body.address,
-    },{
-      where:{
-        id: body.id
-      }
-    });
-    res.json({"type":"result","result":"ok","message":user});
+    const token = req.headers['authorization'];
+    var [result,decoded] = await secTest(token);
+    if (result == true){
+      const user = await User.update({
+        name: body.name,
+        email: body.email,
+        phone: body.phone,
+        address: body.address,
+      },{
+        where:{
+          id: decoded.id
+        }
+      });
+      res.json({"type":"result","result":"ok","message":user});
+    }
+    else{
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+    
   }
   catch (error) {
     console.error(error);
@@ -484,28 +632,44 @@ app.post("/updateuser", async (req, res) => {
   * @key message @value updated user
 */
 app.post("/admin/updateuser", async (req, res) => {
-  try{
-    var body = req.body;
-    const user = await User.update({
-      username: body.username,
-      name: body.name,
-      email: body.email,
-      phone: body.phone,
-      userlevel: body.userlevel,
-      hubID: body.hubID
-    },{
-      where:{
-        id: body.id
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]){
+      try{
+        var body = req.body;
+        const user = await User.update({
+          username: body.username,
+          name: body.name,
+          email: body.email,
+          phone: body.phone,
+          userlevel: body.userlevel,
+          hubID: body.hubID
+        },{
+          where:{
+            id: body.id
+          }
+        });
+        res.json({"type":"result","result":"ok","message":user});
       }
-    });
-    res.json({"type":"result","result":"ok","message":user});
-  }
-  catch (error) {
-    console.error(error);
-    res.status(500).json({"type":"result","result":"fail","message": "cannot update user"});
-  }
+      catch (error) {
+        console.error(error);
+        res.status(500).json({"type":"result","result":"fail","message": "cannot update user"});
+      }
+    }
+    else{
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+  
 });
 
+/*
+* @route POST /deleteuser
+* @param {uuid} id
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} user
+*/
 
 app.delete("/deleteuser", async (req, res) => {
   let tempID = null;
@@ -561,6 +725,16 @@ app.delete("/deleteuser", async (req, res) => {
     res.status(500).json({"type":"result","result":"fail","message": "cannot delete user"});
   }
 });
+
+/*
+* @route POST /deletecompany
+* @param {uuid} id
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} company
+*/
+
 app.delete("/deletecompany", async (req, res) => {
   try{
     var body = req.body;
@@ -656,6 +830,8 @@ app.post("/getlocations", async (req, res) => {
 * @param {integer} cargoType
 * @param {integer} visibility
 * @param {string} description
+* @param {string} image64
+* @param {string} fileName
 * @return {json} 
   * @key type @value result
   * @key result @value ["ok", "fail"]
@@ -669,7 +845,8 @@ app.post("/createoffer", async (req, res) => {
     
     try {
         var [result,decoded] = await secTest(token);
-
+        console.log("startDate",body.startDate);
+        console.log("endDate",body.endDate);
         const offer = await Offer.create({
           type: body.type,
           materialID: body.materialID,
@@ -687,6 +864,24 @@ app.post("/createoffer", async (req, res) => {
           visibility: body.visibility,
           description: body.description
         });
+        if (body.image64 != null && body.image64 != undefined){
+          const file = await Files.create({
+            name: body.imageName,
+            type: 1,
+            parent: offer.id,
+            data: body.image64
+          });
+        }
+        if (body.location != null && body.location != undefined){
+          const location = await Location.create({
+            name: offer.id,
+            latitude: body.location.lat,
+            longitude: body.location.lng,
+            type: 2,
+            companyID: body.companyID,
+            parent: offer.id
+          });
+        }
         res.json({"type":"result","result":"ok","message":offer});
     }
     catch (error2) {
@@ -713,7 +908,12 @@ app.post("/createoffer", async (req, res) => {
 app.post("/getoffers", async (req, res) => {
   try{
     const offers = await Offer.findAll({ 
-      include: [Company, Material, Location],
+      include: [Company, Material, Location, Files],
+      attributes: {
+        include: [
+          [sequelize.col('Material.type'), 'category']
+        ]
+      },
       where:{
         visibility: 1,
         status: 1,
@@ -734,7 +934,41 @@ app.post("/getoffers", async (req, res) => {
 });
 
 /*
-* @route POST /creatematerial
+* @route POST /getuseroffers
+* @param {uuid} userID
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} offers
+*/
+app.post("/getuseroffers", async (req, res) => {
+  try{
+    var body = req.body;
+    var token = req.headers['authorization'];
+    var [result,decoded] = await secTest(token);
+    console.log("decoded",decoded);
+    console.log("body",body);
+    if (result == true && decoded.id == body.id){
+      const offers = await Offer.findAll({
+        where:{
+          creator: decoded.id
+        }
+      });
+      res.json({"type":"result","result":"ok", "message":offers});
+    }
+    else{
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+    
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot get offers"});
+  }
+});
+
+/*
+* @route POST /admin/addmaterial
 * @param {string} name
 * @param {string} description
 * @param {integer} type
@@ -746,23 +980,28 @@ app.post("/getoffers", async (req, res) => {
   * @key result @value ["ok", "fail"]
   * @key message @value if "fail" {string} error message, if "ok" {json} material
 */
-app.post("/creatematerial", async (req, res) => {
-  try{
-    var body = req.body;
-    const material = await Material.create({
-      name: body.name,
-      description: body.description,
-      type: body.type,
-      quality: body.quality,
-      other: body.other,
-      locality: body.locality
-    });
-    res.json({"type":"result","result":"ok","message":material});
-  }
-  catch (error) {
-    console.error(error);
-    res.status(500).json({"type":"result","result":"fail","message": "cannot create material"});
-  }
+app.post("/admin/addmaterial", async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if(result[0]){
+      try{
+        var body = req.body;
+        const material = await Material.create({
+          name: body.name,
+          description: body.description,
+          type: body.type,
+          quality: body.quality,
+          other: body.other,
+          locality: body.locality
+        });
+        res.json({"type":"result","result":"ok","message":material});
+      }
+      catch (error) {
+        console.error(error);
+        res.status(500).json({"type":"result","result":"fail","message": "cannot create material"});
+      }
+    }
+  });
+  
 });
 
 /* 
@@ -1146,6 +1385,100 @@ app.post("/deleteblogpost", async (req, res) => {
   }
 }
 );
+
+/*
+* @route POST /admin/getmaterials
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} materials
+*/
+
+app.post("/admin/getmaterials", async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        const materials = await Material.findAll();
+        res.json({ "type": "result", "result": "ok", "message": materials });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get materials" });
+      }
+    }
+    else{
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+  
+});
+
+/*
+* @route POST /admin/editmaterial
+* @param {uuid} id
+* @param {string} name
+* @param {string} description
+* @param {integer} type
+* @param {string} quality
+* @param {json} other
+* @param {string} locality
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} material
+*/
+
+app.post("/admin/editmaterial", async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        var body = req.body;
+        const material = await Material.update({
+          name: body.name,
+          description: body.description,
+          type: body.type,
+          quality: body.quality,
+          other: body.other,
+          locality: body.locality
+        }, {
+          where: {
+            id: body.id
+          }
+        });
+        res.json({ "type": "result", "result": "ok", "message": material });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to update material" });
+      }
+    }
+  });
+});
+
+/*
+* @route POST /admin/deletematerial
+* @param {uuid} id
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} material
+*/
+app.post("/admin/deletematerial", async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        var body = req.body;
+        const material = await Material.destroy({
+          where: {
+            id: body.id
+          }
+        });
+        res.json({ "type": "result", "result": "ok", "message": material });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to delete material" });
+      }
+    }
+  });
+});
 
 
 //these must be at the bottom but before listen !!!!
