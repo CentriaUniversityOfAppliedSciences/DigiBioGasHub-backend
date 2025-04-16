@@ -10,6 +10,7 @@ import Material from './material.js';
 import Bids from './bids.js';
 import BlogPost from './BlogPost.js';
 import Files from './files.js';
+import Subscription from './subscription.js';
 
 //User.hasMany(UserCompany, { foreignKey: 'userID' });
 //UserCompany.belongsTo(User, { foreignKey: 'id' });
@@ -40,6 +41,7 @@ Offer.hasMany(Location, { foreignKey: 'parent' })
 
 
 
+User.hasMany(Subscription, { foreignKey: 'userID' });
 User.hasMany(BlogPost, { foreignKey: 'userID' });
 
 export { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids, BlogPost, Files};

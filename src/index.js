@@ -1066,6 +1066,12 @@ app.post("/getoffersbyid", async (req, res) => {
   try{
     var body = req.body;
     const offers = await Offer.findOne({
+      include: [Company, Material, Location, Files],
+      attributes: {
+        include: [
+          [sequelize.col('Material.type'), 'category']
+        ]
+      },
       where:{
         id: body.id
       }
