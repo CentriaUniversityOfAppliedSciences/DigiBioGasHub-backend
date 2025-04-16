@@ -539,7 +539,7 @@ app.post("/getuser", async (req, res) => {
 
 
 /*
-* @route POST /getlimitedusers
+* @route POST /admin/getlimitedusers
 * @param {integer} page
 * @param {integer} limit
 * @return {json}
@@ -547,7 +547,7 @@ app.post("/getuser", async (req, res) => {
   * @key result @value {json} users
 */
 
-app.post("/getlimitedusers", async (req, res) => {
+app.post("/admin/getlimitedusers", async (req, res) => {
   try {
     let { page, limit } = req.body;
     const allowedLimits = [5, 25, 50, 75, 100];
@@ -618,7 +618,7 @@ app.post("/updateuser", async (req, res) => {
 
 
 /* update user with admin rights */
-/* @route POST admim/updateuser
+/* @route POST /admin/updateuser
 * @param {uuid} id
 * @param {string} username
 * @param {string} name
@@ -1141,14 +1141,14 @@ app.post("/stations", async (req, res) => {
 
 
 /*
-* @route POST /createblogpost
+* @route POST /admin/createblogpost
 * @param {string} title
 * @param {text} content
 * @param {string} image (optional)
 * @param {uuid} userID
 * @param {integer} blogPostType
 */
-app.post("/createblogpost", async (req, res) => {
+app.post("/admin/createblogpost", async (req, res) => {
   try{
     var body = req.body;
     const blogpost = await BlogPost.create({
@@ -1168,7 +1168,7 @@ app.post("/createblogpost", async (req, res) => {
 
 
 /*
-* @route POST /updateblogpost
+* @route POST /admin/updateblogpost
 * @param {uuid} postID
 * @param {string} title
 * @param {text} content 
@@ -1179,7 +1179,7 @@ app.post("/createblogpost", async (req, res) => {
   * @key result @value ["ok", "fail"]
   * @key message @value if fail {string} error message, if ok {json} updated blog post
 */
-app.post("/updateblogpost", async (req, res) => {
+app.post("/admin/updateblogpost", async (req, res) => {
   try {
     var body = req.body;
     const [numberOfAffectedRows, blogpost]  = await BlogPost.update({
@@ -1237,13 +1237,13 @@ app.post("/getblogpost", async (req, res) => {
 
 
 /*
-* @route POST /getallblogposts
+* @route POST /admin/getallblogposts
 * @return {json} 
   * @key type @value result
   * @key result @value ["ok", "fail"]
   * @key message @value if fail {string} error message, if ok {json} blog posts
 */
-app.post("/getallblogposts", async (req, res) => {
+app.post("/admin/getallblogposts", async (req, res) => {
   try {
     const blogposts = await BlogPost.findAll();
     res.json({ "type": "result", "result": "ok", "message": blogposts });
@@ -1304,13 +1304,13 @@ app.post("/getallpublishedblogposts", async (req, res) => {
 
 
 /*
-* @route POST /publishblogpost
+* @route POST /admin/publishblogpost
 * @param {uuid} postID
 * @return {json} 
   * @key type @value result
   * @key result @value ["ok", "fail"]
 */
-app.post("/publishblogpost", async (req, res) => {
+app.post("/admin/publishblogpost", async (req, res) => {
   try {
     var body = req.body;
     const [numberOfAffectedRows, blogpost] = await BlogPost.update({
@@ -1335,13 +1335,13 @@ app.post("/publishblogpost", async (req, res) => {
 
 
 /*
-* @route POST /unpublishblogpost
+* @route POST /admin/unpublishblogpost
 * @param {uuid} postID
 * @return {json} 
   * @key type @value result
   * @key result @value ["ok", "fail"]
 */
-app.post("/unpublishblogpost", async (req, res) => {
+app.post("/admin/unpublishblogpost", async (req, res) => {
   try {
     var body = req.body;
     const [numberOfAffectedRows, blogpost] = await BlogPost.update({
@@ -1366,13 +1366,13 @@ app.post("/unpublishblogpost", async (req, res) => {
 
 
 /*
-* @route POST /deleteblogpost
+* @route POST /admin/deleteblogpost
 * @param {uuid} postID
 * @return {json} 
   * @key type @value result
   * @key result @value ["ok", "fail"]
 */
-app.post("/deleteblogpost", async (req, res) => {
+app.post("/admin/deleteblogpost", async (req, res) => {
   try {
     var body = req.body;
     const numberOfDeletedRows = await BlogPost.destroy({
