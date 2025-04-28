@@ -21,15 +21,15 @@ app.use(helmet({
 app.disable('x-powered-by');
 import sequelize from './models/database.js';
 import { Op } from 'sequelize';
+import minioconnector from './minioconnector.js';
 import { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids, BlogPost, Files } from './models/index.js';
-import e from 'express';
 
 sequelize.sync({ alter: false }).then(()=>{ // change alter:true if you want to update the database schema, fill in missing values in db manually, not for production
   //console.log("created");
 }).catch((e)=>{
   console.log(e);
 });
-
+0
 /*
 * testing if connection origin is allowed, origins in Hubs table in database
 */
@@ -205,16 +205,29 @@ app.post("/login", async (req, res) => {
     if (await cryptic.compare(body.password,user.password)){
       delete user.password;
       const token = jwt.sign(user, process.env.JWT_KEY);
+      
       res.json({
         "type":"result",
         "result":"ok",
         "token":token
+      });
+      await Logs.create({
+        userID: user.id,
+        action: req.url,
+        text: "user logged in, for page " + req.url + " from ip:" + req.ip,
+        level: 1
       });
     }
     else{
       res.json({
         "type":"result",
         "result":"fail"
+      });
+      await Logs.create({
+        userID: null,
+        action: req.url,
+        text: "user failed to login, for page " + req.url + " from ip:" + req.ip,
+        level: 2
       });
     }
   }
@@ -223,6 +236,12 @@ app.post("/login", async (req, res) => {
     res.json({
       "type":"result",
       "result":"fail"
+    });
+    await Logs.create({
+      userID: null,
+      action: req.url,
+      text: "user failed to login, for page " + req.url + " from ip:" + req.ip,
+      level: 2
     });
   }
   
@@ -249,41 +268,59 @@ app.post("/createcompany", async (req, res) => {
   try{
     const token = req.headers['authorization'];
     var [result,decoded] = await secTest(token);
-    var body = req.body;
-    const company = await Company.create({
-      name: body.name,
-      address: body.address,
-      city: body.city,
-      zipcode: body.zipcode,
-      email: body.email,
-      phone: body.phone,
-      companyType: body.companyType,
-      companyStatus: "0",
-      hubID: "1",
-      web: body.web
-    }).then((company) => { 
-      UserCompany.create({
-        userID: body.userID,
-        companyID: company.id,
-        userlevel: 23,
-        CompanyId: company.id
-     }).then((usercompany) => {
-      getCoords(body.address, body.zipcode, body.city).then((coords) => {
-        if (coords != null && coords != undefined){
-          Location.create({
-            name: body.name,
-            latitude: coords.data.lat,
-            longitude: coords.data.lng,
-            type: 1,
-            companyID: company.id,
-            parent: company.id
-          });
-        }
-        
+    if (result == true && decoded.id == req.body.userID){
+      var body = req.body;
+      const company = await Company.create({
+        name: body.name,
+        address: body.address,
+        city: body.city,
+        zipcode: body.zipcode,
+        email: body.email,
+        phone: body.phone,
+        companyType: body.companyType,
+        companyStatus: "0",
+        hubID: "1",
+        web: body.web
+      }).then((company) => { 
+        UserCompany.create({
+          userID: body.userID,
+          companyID: company.id,
+          userlevel: 23,
+          CompanyId: company.id
+       }).then((usercompany) => {
+        getCoords(body.address, body.zipcode, body.city).then((coords) => {
+          if (coords != null && coords != undefined){
+            Location.create({
+              name: body.name,
+              latitude: coords.data.lat,
+              longitude: coords.data.lng,
+              type: 1,
+              companyID: company.id,
+              parent: company.id
+            });
+          }
+          
+        });
+        res.json({"type":"result","result":"ok","message":company});
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "company create success, for company " + company.id + " from ip:" + req.ip,
+          level: 1
+        });
+       });
       });
-      res.json({"type":"result","result":"ok","message":company});
-     });
-    });
+    }
+    else{
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "company create failed unauthorized, for page " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+    }
+    
     
     
     
@@ -291,6 +328,12 @@ app.post("/createcompany", async (req, res) => {
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot create company"});
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "company create failed, for error " + error + " from ip:" + req.ip,
+      level: 3
+    });
   }
 });
 
@@ -381,24 +424,42 @@ app.post("/getusercompanies", async (req, res) => {
   const token = req.headers['authorization'];
   var [result,decoded] = await secTest(token);
   try{
-    const user = await User.findOne({
-      where:{
-        id: decoded.id
-      },
-    });
-    user.getCompanies().then((companies) => {
-      res.json({"type":"result","result":"ok", "message":companies});
-    }).
-    catch((error) => {
-      console.error(error);
-      res.status(500).json({"type":"result","result":"fail","message": "cannot getusercompanies"});
-       
-    });
-    
+    if (result == true){
+      const user = await User.findOne({
+        where:{
+          id: decoded.id
+        },
+      });
+      user.getCompanies().then((companies) => {
+        res.json({"type":"result","result":"ok", "message":companies});
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "access granted " + req.url + " from ip:" + req.ip,
+          level: 1
+        });
+      }).
+      catch((error) => {
+        console.error(error);
+        res.status(500).json({"type":"result","result":"fail","message": "cannot getusercompanies"});
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "access not granted " + req.url + " from ip:" + req.ip,
+          level: 2
+        });
+      });
+    }
   }
   catch (error) { 
     console.error(error); 
     res.status(500).json({"type":"result","result":"fail","message": "cannot getusercompanies"});
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "error " + error + " from ip:" + req.ip,
+      level: 3
+    });
   }
 });
 
@@ -412,16 +473,34 @@ app.post("/getusercompanies", async (req, res) => {
 */
 app.post("/admin/getallcompanies", async (req, res) => {
   adminTest(req.headers['authorization']).then(async (result) => {
-    if (!result[0]) {
+    if (result[0]) {
       try {
         const companies = await Company.findAll();
         res.json({ "type": "result", "result": "ok", "message": companies });
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "access granted: " + req.url + " from ip:" + req.ip,
+          level: 1
+        });
       } catch (error) {
         console.error(error);
         res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get companies" });
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
       }
     } else {
       res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "not authorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
     }
   });
 });
@@ -446,26 +525,50 @@ app.post("/admin/getallcompanies", async (req, res) => {
 
 app.post("/updatecompany", async (req, res) => {
   try{
-    var body = req.body;
-    const company = await Company.update({
-      name: body.name,
-      address: body.address,
-      city: body.city,
-      zipcode: body.zipcode,
-      email: body.email,
-      phone: body.phone,
-      companyType: body.companyType,
-      web: body.web
-    },{
-      where:{
-        id: body.id
-      }
-    });
-    res.json({"type":"result","result":"ok","message":company});
+    const token = req.headers['authorization'];
+    var [result,decoded] = await secTest(token);
+    if (result == true){
+      var body = req.body;
+      const company = await Company.update({
+        name: body.name,
+        address: body.address,
+        city: body.city,
+        zipcode: body.zipcode,
+        email: body.email,
+        phone: body.phone,
+        companyType: body.companyType,
+        web: body.web
+      },{
+        where:{
+          id: body.id
+        }
+      });
+      res.json({"type":"result","result":"ok","message":company});
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access granted: " + req.url + " from ip:" + req.ip,
+        level: 1
+      });
+    }
+    else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "not authorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+    }
   }
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot update company"});
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "error: " + error + " from ip:" + req.ip,
+      level: 3
+    });
   }
 });
 
@@ -486,7 +589,13 @@ app.post("/admin/updatecompanystatus", async (req, res) => {
         const { id, status } = req.body;
     
         if (!id || status === undefined) {
-          return res.status(400).json({ result: "error", "message": "Company ID and status are required" });
+          res.status(400).json({ result: "error", "message": "Company ID and status are required" });
+          Logs.create({
+            userID: result[1].id,
+            action: req.url,
+            text: "Company ID or status missing from ip:" + req.ip,
+            level: 3
+          });
         }
     
         const [updated] = await Company.update(
@@ -495,17 +604,42 @@ app.post("/admin/updatecompanystatus", async (req, res) => {
         );
     
         if (updated) {
-          return res.json({ "type": "result", "result": "ok", "message": "Company status updated successfully" });
+          res.json({ "type": "result", "result": "ok", "message": "Company status updated successfully" });
+          Logs.create({
+            userID: result[1].id,
+            action: req.url,
+            text: "company status updated: " + req.url + " from ip:" + req.ip,
+            level: 1
+          });
+          
         } else {
-          return res.status(404).json({ result: "error", "message": "Company not found" });
+          res.status(404).json({ result: "error", "message": "Company not found" });
+          Logs.create({
+            userID: result[1].id,
+            action: req.url,
+            text: "Company not found: " + req.url + " from ip:" + req.ip,
+            level: 1
+          });
         }
       } catch (error) {
         console.error(error);
         res.status(500).json({ "type": "result", "result": "fail", "message": "cannot update company status" });
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
       }
     }
     else{
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
     }
   });
   
@@ -865,12 +999,43 @@ app.post("/createoffer", async (req, res) => {
           description: body.description
         });
         if (body.image64 != null && body.image64 != undefined){
-          const file = await Files.create({
+          /*const file = await Files.create({
             name: body.imageName,
             type: 1,
             parent: offer.id,
             data: body.image64
-          });
+          });*/
+          const client = await minioconnector.createConnection();
+          try {
+            const dataUrl = body.image64; // Base64 Data URL
+            const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+
+            if (!matches || matches.length !== 3) {
+              throw new Error('Invalid base64 Data URL');
+            }
+
+            const mimeType = matches[1]; // Extract MIME type
+            const base64Data = matches[2]; // Extract base64 data
+            const buffer = Buffer.from(base64Data, 'base64'); // Convert base64 to buffer
+
+            const folder = 'offers'; // Define the bucket/folder name
+            const filename = `${offer.id}_${body.imageName}`; // Generate a unique filename
+
+            // Upload the file to MinIO
+            await minioconnector.insert(client, buffer, filename, folder);
+                    
+            // Save the reference to the file in the database
+            const file = await Files.create({
+              name: body.imageName,
+              type: 1,
+              parent: offer.id,
+              data: `${folder}/${filename}` // Reference to the MinIO file
+            });
+          } catch (error) {
+            console.error('Error uploading file to MinIO:', error);
+            throw new Error('Failed to upload file to MinIO');
+          }
+
         }
         if (body.location != null && body.location != undefined){
           const location = await Location.create({
@@ -917,6 +1082,7 @@ app.post("/getoffers", async (req, res) => {
       where:{
         visibility: 1,
         status: 1,
+        sold:null,
         endDate: {
           [Op.gte]: new Date()
         },
@@ -925,6 +1091,19 @@ app.post("/getoffers", async (req, res) => {
         }
       }
     });
+    const client = await minioconnector.createConnection();
+
+    // Add temporary file links to each offer
+    for (const offer of offers) {
+      //console.log("offer",offer);
+      console.log("offer.Files",offer.Files);
+      if (offer.Files != null && offer.Files[0].dataValues != null) {
+        const filePath = offer.Files[0].dataValues.data; // e.g., "offers/<filename>"
+        const [folder, filename] = filePath.split('/'); // Split into folder and filename
+        const tempLink = await minioconnector.getLink(client, folder, filename);
+        offer.dataValues.fileLink = tempLink; // Add the temporary link to the offer
+      }
+    }
     res.json({"type":"result","result":"ok", "message":offers});
   }
   catch (error) {
@@ -964,6 +1143,55 @@ app.post("/getuseroffers", async (req, res) => {
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot get offers"});
+  }
+});
+
+app.post("/buyoffer", async (req, res) => {
+  try{
+    var token = req.headers['authorization'];
+    var [result,decoded] = await secTest(token);
+    var body = req.body;
+    const offer = await Offer.findOne({
+      where:{
+        id: body.offerId
+      }
+    });
+    Contract.create({
+      offerID: body.offerId,
+      buyer: decoded.id,
+      price: body.price,
+      amount: body.amount
+    }).then((contract) => {
+      if (offer.availableAmount - body.amount == 0){
+        Offer.update({
+          sold: Date.now(),
+          availableAmount: 0,
+        },{
+          where:{
+            id: body.offerId
+          }
+        }).then((offer) => {
+          res.json({"type":"result","result":"ok","message":contract});
+        });
+      }
+      else{
+        Offer.update({
+          availableAmount: (offer.availableAmount - body.amount),
+        },{
+          where:{
+            id: body.offerId
+          }
+        }).then((offer) => {
+          res.json({"type":"result","result":"ok","message":contract});
+        });
+      }
+      
+    });
+    //res.json({"type":"result","result":"ok","message":offer});
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot buy offer"});
   }
 });
 
@@ -1012,6 +1240,7 @@ app.post("/admin/addmaterial", async (req, res) => {
 */
 
 app.post("/getmaterials", async (req, res) => {
+  console.log("getmaterials");
   try{
     const materials = await Material.findAll({
       where:{
@@ -1043,6 +1272,17 @@ app.post("/getoffersbycompany", async (req, res) => {
         companyID: body.companyID
       }
     });
+    const client = await minioconnector.createConnection();
+
+    // Add temporary file links to each offer
+    for (const offer of offers) {
+      if (offer.Files != null && offer.Files[0].dataValues != null) {
+        const filePath = offer.Files[0].dataValues.data; // e.g., "offers/<filename>"
+        const [folder, filename] = filePath.split('/'); // Split into folder and filename
+        const tempLink = await minioconnector.getLink(client, folder, filename);
+        offer.dataValues.fileLink = tempLink; // Add the temporary link to the offer
+      }
+    }
     res.json({"type":"result","result":"ok", "message":offers});
   }
   catch (error) {
@@ -1065,7 +1305,7 @@ app.post("/getoffersbycompany", async (req, res) => {
 app.post("/getoffersbyid", async (req, res) => {
   try{
     var body = req.body;
-    const offers = await Offer.findOne({
+    const offer = await Offer.findOne({
       include: [Company, Material, Location, Files],
       attributes: {
         include: [
@@ -1076,7 +1316,18 @@ app.post("/getoffersbyid", async (req, res) => {
         id: body.id
       }
     });
-    res.json({"type":"result","result":"ok", "message":offers});
+    const client = await minioconnector.createConnection();
+
+    // Add temporary file links to each offer
+    
+      if (offer.Files != null && offer.Files[0].dataValues != null) {
+        const filePath = offer.Files[0].dataValues.data; // e.g., "offers/<filename>"
+        const [folder, filename] = filePath.split('/'); // Split into folder and filename
+        const tempLink = await minioconnector.getLink(client, folder, filename);
+        offer.dataValues.fileLink = tempLink; // Add the temporary link to the offer
+      }
+    
+    res.json({"type":"result","result":"ok", "message":offer});
   }
   catch (error) {
     console.error(error);

@@ -102,3 +102,13 @@ type:{
     3: User
 }
 ```
+
+# Logs
+```
+level:{
+    0: debug
+    1: normal
+    2: warning
+    3: error
+    4: high
+}
