@@ -11,6 +11,7 @@ How to use
   MML_API_KEY=your-mml-api-key https://www.maanmittauslaitos.fi/en/rajapinnat/api-avaimen-ohje\
   MINIO_ROOT_USER=your-minio-user\
   MINIO_ROOT_PASSWORD=your-minio-password\  
+  CHAT_SERVER_API_KEY=your-chatserver-api-key
 
 2. Install min.io (https://github.com/minio/minio) file storage\
 for Ubuntu\
