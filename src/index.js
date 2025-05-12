@@ -84,6 +84,27 @@ app.use(async (req, res, next) => {
     }
     next();
   }
+  else if (req.url == '/getusername' ){
+    const apikey = req.headers['x-api-key'];
+    if (apikey == process.env.CHAT_SERVER_API_KEY){
+      await Logs.create({
+        userID: null,
+        action: req.url,
+        text: "apikey check, page access granted, for page " + req.url + " from ip:" + req.ip,
+        level: 1
+      });
+      next();
+    }
+    else{
+      await Logs.create({
+        userID: null,
+        action: req.url,
+        text: "apikey check, page access failed, for page " + req.url + " from ip:" + req.ip,
+        level: 3
+      });
+      return res.status(401).json({ "type":"result","result":"fail","message": 'error' });
+    }
+  }
   else{
     const token = req.headers['authorization'];
     if (!token) {
@@ -668,6 +689,47 @@ app.post("/getuser", async (req, res) => {
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot get user"});
+  }
+});
+
+/*
+* @route POST /getAllUsers
+* @return {json}
+  * @key type @value result
+  * @key result @value {json} users
+*/
+app.post("/getallusers", async (req, res) => {
+  try {
+    const users = await User.findAll({
+      attributes:["id", "name"],
+    });
+    res.json({ type: "result", result: "ok", message: users });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ type: "result", result: "fail", message: "cannot get users" });
+  }
+});
+
+/*
+* @route POST /getUsername
+* @param {uuid} id
+* @return {json}
+  * @key type @value result
+  * @key result @value {json} users
+*/
+app.post("/getusername", async (req, res) => {
+  try {
+    var body = req.body;
+    const user = await User.findOne({
+      where:{
+        id: body.id
+      },
+      attributes:["username"]
+    });
+    res.json({ type: "result", result: "ok", message: user });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ type: "result", result: "fail", message: "cannot get username" });
   }
 });
 
