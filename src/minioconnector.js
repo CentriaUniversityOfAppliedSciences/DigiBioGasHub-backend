@@ -66,7 +66,10 @@ import * as Minio from 'minio'
     const getLink = async function (client,folder,filename){
         try {
             // Generate a presigned URL for the object
-            const tempLink = await client.presignedUrl('GET', folder, filename);
+            let tempLink = await client.presignedUrl('GET', folder, filename);
+            if (process.env.MINIO_DEV == "false"){
+                tempLink = tempLink.replace('http://localhost:9000',process.env.MINIO_ADDRESS);
+            }
             return tempLink; // Return the generated link
         } catch (error) {
             console.error('Error generating presigned URL:', error);

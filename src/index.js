@@ -1041,8 +1041,6 @@ app.post("/createoffer", async (req, res) => {
     
     try {
         var [result,decoded] = await secTest(token);
-        console.log("startDate",body.startDate);
-        console.log("endDate",body.endDate);
         const offer = await Offer.create({
           type: body.type,
           materialID: body.materialID,
