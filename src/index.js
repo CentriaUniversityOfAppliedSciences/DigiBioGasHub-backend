@@ -84,7 +84,7 @@ app.use(async (req, res, next) => {
     }
     next();
   }
-  else if (req.url == '/getusername' ){
+  else if (req.url == '/getusername' || req.url == '/getallusers'  ){
     const apikey = req.headers['x-api-key'];
     if (apikey == process.env.CHAT_SERVER_API_KEY){
       await Logs.create({
@@ -693,7 +693,7 @@ app.post("/getuser", async (req, res) => {
 });
 
 /*
-* @route POST /getAllUsers
+* @route POST /getallusers
 * @return {json}
   * @key type @value result
   * @key result @value {json} users
