@@ -12,6 +12,8 @@ How to use
   MINIO_ROOT_USER=your-minio-user \
   MINIO_ROOT_PASSWORD=your-minio-password \  
   CHAT_SERVER_API_KEY=your-chatserver-api-key \
+  MINIO_DEV=false \
+  MINIO_ADDRESS=your_web_server_behind_nginx \
 
 2. Install min.io (https://github.com/minio/minio) file storage \
 for Ubuntu \
