@@ -116,7 +116,7 @@ app.use(async (req, res, next) => {
           await Logs.create({
             userID: decoded.id,
             action: req.url,
-            text: "jwt check, page access granted:" + req.url + " for user:" + decoded.username + " from ip:" + req.ip,
+            text: "jwt check, page access granted:" + req.url + " for user:" + decoded.id + " from ip:" + req.ip,
             level: 1
           });
           next();
@@ -126,7 +126,7 @@ app.use(async (req, res, next) => {
             await Logs.create({
               userID: decoded.id,
               action: req.url,
-              text: "jwt check, page access failed, invalid jwt token for: " + req.url + " for user:" + decoded.username + " from ip:" + req.ip,
+              text: "jwt check, page access failed, invalid jwt token for: " + req.url + " for user:" + decoded.id + " from ip:" + req.ip,
               level: 3
             });
           }
@@ -138,7 +138,7 @@ app.use(async (req, res, next) => {
         await Logs.create({
           userID: decoded.id,
           action: req.url,
-          text: "jwt check, page access failed, for page " + req.url +  " error: " + error + " for user:" + decoded.username + " from ip:" + req.ip,
+          text: "jwt check, page access failed, for page " + req.url +  " error: " + error + " for user:" + decoded.id + " from ip:" + req.ip,
           level: 3
         });
       }
@@ -317,7 +317,7 @@ app.post("/createcompany", async (req, res) => {
               longitude: coords.data.lng,
               type: 1,
               companyID: company.id,
-              parent: company.id
+              parent: null
             });
           }
           
@@ -552,13 +552,15 @@ app.post("/updatecompany", async (req, res) => {
       var body = req.body;
       const company = await Company.update({
         name: body.name,
+        description: body.description,
         address: body.address,
         city: body.city,
         zipcode: body.zipcode,
         email: body.email,
         phone: body.phone,
         companyType: body.companyType,
-        web: body.web
+        web: body.web,
+        updateAt: new Date()
       },{
         where:{
           id: body.id
@@ -931,21 +933,25 @@ app.delete("/deleteuser", async (req, res) => {
   * @key message @value if "fail" {string} error message, if "ok" {json} company
 */
 
-app.delete("/deletecompany", async (req, res) => {
+app.post("/deletecompany", async (req, res) => {
   try{
-    var body = req.body;
-    const company = await Company.destroy({
-      where:{
-        id: body.id
-      }
-    }).then(() => { 
-      UserCompany.destroy({
+    const token = req.headers['authorization'];
+    var [result,decoded] = await secTest(token);
+    if (result == true){
+      var body = req.body;
+      const company = await Company.destroy({
         where:{
-          companyID: body.id
+          id: body.id
         }
+      }).then(() => { 
+        UserCompany.destroy({
+          where:{
+            companyID: body.id
+          }
+        });
       });
-    });
-    res.json({"type":"result","result":"ok","message":company});
+      res.json({"type":"result","result":"ok","message":company});
+    }
   }
   catch (error) {
     console.error(error);
