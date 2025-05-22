@@ -486,6 +486,57 @@ app.post("/getusercompanies", async (req, res) => {
 
 
 /*
+* @route POST /companyoffers
+* @param {uuid} companyID
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} offers
+*/
+
+app.post("/companyoffers", async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  try{
+    if (result == true){
+      var body = req.body;
+      const offers = await Offer.findAll({
+        include: [Company, Material, Location, Files],
+        attributes: {
+          include: [
+            [sequelize.col('Material.type'), 'category']
+          ]
+        },
+        where:{
+          companyID: body.companyID
+        }
+      });
+      const client = await minioconnector.createConnection();
+      // Add temporary file links to each offer
+      for (const offer of offers) {
+        //console.log("offer",offer);
+        console.log("offer.Files",offer.Files);
+        if (offer.Files != null && offer.Files.length > 0 && offer.Files[0].dataValues != null ) {
+          const filePath = offer.Files[0].dataValues.data; // e.g., "offers/<filename>"
+          const [folder, filename] = filePath.split('/'); // Split into folder and filename
+          const tempLink = await minioconnector.getLink(client, folder, filename);
+          offer.dataValues.fileLink = tempLink; // Add the temporary link to the offer
+        }
+      }
+      res.json({"type":"result","result":"ok", "message":offers});
+    }
+    else{
+
+    }
+    
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot get company offers"});
+  }
+});
+
+/*
 * @route POST /admin/getallcompanies
 * @return {json} 
   * @key type @value result
@@ -1064,13 +1115,8 @@ app.post("/createoffer", async (req, res) => {
           visibility: body.visibility,
           description: body.description
         });
-        if (body.image64 != null && body.image64 != undefined){
-          /*const file = await Files.create({
-            name: body.imageName,
-            type: 1,
-            parent: offer.id,
-            data: body.image64
-          });*/
+        if (body.image64 != null && body.image64 != undefined && body.image64 != ""){
+          
           const client = await minioconnector.createConnection();
           try {
             const dataUrl = body.image64; // Base64 Data URL
@@ -1128,6 +1174,189 @@ app.post("/createoffer", async (req, res) => {
 });
 
 /*
+* @route POST /updateoffer
+* @param {uuid} id
+* @param {integer} type
+* @param {integer} materialID
+* @param {uuid} companyID
+* @param {integer} locationID
+* @param {integer} unit 
+* @param {float} price
+* @param {float} amount
+* @param {date} startDate
+* @param {date} endDate
+* @param {float} availableAmount
+* @param {integer} status
+* @param {integer} cargoType
+* @param {integer} visibility
+* @param {string} description
+* @param {string} image64
+* @param {string} fileName
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} offer
+*/
+app.post("/updateoffer", async (req, res) => {
+  try{
+    var body = req.body;
+    const token = req.headers['authorization'];
+    
+    try {
+        var [result,decoded] = await secTest(token);
+        const offer = await Offer.update({
+          type: body.type,
+          materialID: body.materialID,
+          companyID: body.companyID,
+          locationID: body.locationID,
+          unit: body.unit,
+          price: body.price,
+          amount: body.amount,
+          startDate: body.startDate,
+          endDate: body.endDate,
+          availableAmount: body.amount,
+          status: 1,
+          cargoType: body.cargoType,
+          visibility: body.visibility,
+          description: body.description,
+          updateAt: new Date()
+        },{
+          where:{
+            id: body.id
+          }
+        });
+        if (body.image64 != null && body.image64 != undefined && body.imageChanged == true){
+          
+          const client = await minioconnector.createConnection();
+          try {
+            const dataUrl = body.image64; // Base64 Data URL
+            const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+
+            if (!matches || matches.length !== 3) {
+              throw new Error('Invalid base64 Data URL');
+            }
+
+            const mimeType = matches[1]; // Extract MIME type
+            const base64Data = matches[2]; // Extract base64 data
+            const buffer = Buffer.from(base64Data, 'base64'); // Convert base64 to buffer
+
+            const folder = 'offers'; // Define the bucket/folder name
+            const filename = `${body.id}_${body.imageName}`; // Generate a unique filename
+
+            // Upload the file to MinIO
+            await minioconnector.insert(client, buffer, filename, folder);
+                    
+            // Save the reference to the file in the database
+            const file = await Files.create({
+              name: body.imageName,
+              type: 1,
+              parent: body.id,
+              data: `${folder}/${filename}` // Reference to the MinIO file
+            });
+            console.log("oldImage",body.oldImage);
+            await minioconnector.deleteFile(client, folder, body.oldImage);
+            await Files.destroy({
+              where:{
+                id: body.oldImageId
+              }
+            });
+          } catch (error) {
+            console.error('Error uploading file to MinIO:', error);
+            throw new Error('Failed to upload file to file to MinIO');
+          }
+        }
+        if (body.location != null && body.location != undefined && body.locationChanged == true){
+          if (body.oldLocation == true){
+            const location = await Location.update({
+              name: body.id,
+              latitude: body.location.lat,
+              longitude: body.location.lng,
+              type: 2,
+              companyID: body.companyID,
+              parent: body.id
+            },{
+              where:{
+                id: body.locationID
+              }
+            });
+          }
+          else{
+            const location = await Location.create({
+              name: body.id,
+              latitude: body.location.lat,
+              longitude: body.location.lng,
+              type: 2,
+              companyID: body.companyID,
+              parent: body.id
+            });
+            await Offer.update({
+              locationID: location.id
+            },{
+              where:{
+                id: body.id
+              }
+            });
+          }
+        }
+        
+        res.json({"type":"result","result":"ok","message":offer});
+    }
+    catch (error2) {
+      console.log(error2);
+      res.status(500).json({"type":"result","result":"fail","message": "cannot update offer"});
+    }
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot update offer"});
+  }
+});
+
+/*
+* @route POST /deleteoffer
+* @param {uuid} id
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} offer
+*/
+app.post("/deleteoffer", async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  try{
+    if (result == true){
+      var body = req.body;
+      const offer = await Offer.destroy({
+        where:{
+          id: body.id
+        }
+      });
+      const fil = await Files.findAll({
+        where:{
+          parent: body.id
+        }
+      });
+      for (const f of fil){
+        const client = await minioconnector.createConnection();
+        await minioconnector.deleteFile(client, "offers", body.id + "_" + f.name);
+      }
+      await Files.destroy({
+        where:{
+          parent: body.id
+        }
+      });
+      res.json({"type":"result","result":"ok","message":offer});
+    }
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot delete offer"});
+  }
+  
+});
+
+
+/*
 * @route POST /getoffers
 * @where visibility = 1, status = 1, endDate >= now, startDate <= now
 * @return {json} 
@@ -1161,9 +1390,7 @@ app.post("/getoffers", async (req, res) => {
 
     // Add temporary file links to each offer
     for (const offer of offers) {
-      //console.log("offer",offer);
-      console.log("offer.Files",offer.Files);
-      if (offer.Files != null && offer.Files[0].dataValues != null) {
+      if (offer.Files != null && offer.Files.length > 0 && offer.Files[0].dataValues != null) {
         const filePath = offer.Files[0].dataValues.data; // e.g., "offers/<filename>"
         const [folder, filename] = filePath.split('/'); // Split into folder and filename
         const tempLink = await minioconnector.getLink(client, folder, filename);
@@ -1386,7 +1613,7 @@ app.post("/getoffersbyid", async (req, res) => {
 
     // Add temporary file links to each offer
     
-      if (offer.Files != null && offer.Files[0].dataValues != null) {
+      if (offer.Files != null && offer.Files.length > 0 &&offer.Files[0].dataValues != null) {
         const filePath = offer.Files[0].dataValues.data; // e.g., "offers/<filename>"
         const [folder, filename] = filePath.split('/'); // Split into folder and filename
         const tempLink = await minioconnector.getLink(client, folder, filename);

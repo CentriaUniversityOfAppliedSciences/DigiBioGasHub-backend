@@ -62,6 +62,25 @@ import * as Minio from 'minio'
         }
         
     };
+    const deleteFile = async function(client,folder,filename){
+        try{
+            console.log(folder,filename);
+            const exists = await client.statObject(folder,filename);
+            console.log(exists);
+            if (exists){
+                const deleted = await client.removeObject(folder,filename);
+                return;
+            }
+            else{
+                return null;
+            }
+        }
+        catch(ex){
+            console.log(ex);
+            return null;
+        }
+    };
+
 
     const getLink = async function (client,folder,filename){
         try {
@@ -83,5 +102,6 @@ import * as Minio from 'minio'
         checkfolder,
         checkFile,
         insert,
-        getLink
+        getLink,
+        deleteFile
     }
