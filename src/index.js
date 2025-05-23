@@ -14,6 +14,10 @@ import morgan from 'morgan';
 import jwt from "jsonwebtoken";
 import cryptic from './cryptic.js';
 import bodyParser from 'body-parser';
+import sendEmail from './email/emailService.js';
+import buyerEmailTemplate from './email/buyerEmailTemplate.js';
+import sellerEmailTemplate from './email/sellerEmailTemplate.js';
+import { OFFER_UNITS, OFFER_CARGOTYPE, MATERIAL_TYPE} from './email/enum.js';
 app.use(morgan('combined'));
 app.use(helmet({
 
@@ -1440,53 +1444,99 @@ app.post("/getuseroffers", async (req, res) => {
 });
 
 app.post("/buyoffer", async (req, res) => {
-  try{
-    var token = req.headers['authorization'];
-    var [result,decoded] = await secTest(token);
-    var body = req.body;
+  try {
+    const token = req.headers['authorization'];
+    const [result, decoded] = await secTest(token);
+    const body = req.body;
+
     const offer = await Offer.findOne({
-      where:{
-        id: body.offerId
-      }
+      where: { id: body.offerId },
+      include: [
+        {
+          model: Company
+        },
+        {
+          model: Material,
+          attributes: ['name', 'description', 'type', 'quality']
+        }
+      ]
     });
-    Contract.create({
+
+    if (!offer) {
+      return res.status(404).json({ type: "result", result: "fail", message: "Offer not found" });
+    }
+
+    const company = offer.Company;
+
+    const contract = await Contract.create({
       offerID: body.offerId,
       buyer: decoded.id,
       price: body.price,
       amount: body.amount
-    }).then((contract) => {
-      if (offer.availableAmount - body.amount == 0){
-        Offer.update({
-          sold: Date.now(),
-          availableAmount: 0,
-        },{
-          where:{
-            id: body.offerId
-          }
-        }).then((offer) => {
-          res.json({"type":"result","result":"ok","message":contract});
-        });
-      }
-      else{
-        Offer.update({
-          availableAmount: (offer.availableAmount - body.amount),
-        },{
-          where:{
-            id: body.offerId
-          }
-        }).then((offer) => {
-          res.json({"type":"result","result":"ok","message":contract});
-        });
-      }
-      
     });
-    //res.json({"type":"result","result":"ok","message":offer});
-  }
-  catch (error) {
-    console.error(error);
-    res.status(500).json({"type":"result","result":"fail","message": "cannot buy offer"});
+
+    const remaining = offer.availableAmount - body.amount;
+    const isSoldOut = remaining <= 0;
+
+    const updateData = isSoldOut
+      ? { sold: Date.now(), availableAmount: 0 }
+      : { availableAmount: remaining };
+
+    await Offer.update(updateData, { where: { id: body.offerId } });
+
+    // Send emails if companyType is logistic
+    if (company && company.companyType === 5) {
+
+      const buyer = await User.findOne({ where: { id: decoded.id } });
+
+      const offerData = {
+        description: offer.description,
+        cargoType: OFFER_CARGOTYPE[offer.cargoType] || 'unknown',
+        unit: OFFER_UNITS[offer.unit] || 'not available',
+      };
+
+      const materialData = {
+        name: offer.Material.name,
+        description: offer.Material.description,
+        type: MATERIAL_TYPE[offer.Material.type] || 'unknown',
+        quality: offer.Material.quality,
+      };
+
+      const buyerMsgHTML = buyerEmailTemplate({
+        amount: body.amount,
+        price: body.price,
+        offer: offerData,
+        material: materialData,
+        isSoldOut,
+        company
+      });
+
+      const sellerMsgHTML = sellerEmailTemplate({
+        buyer,
+        amount: body.amount,
+        price: body.price,
+        offer: offerData,
+        material: materialData,
+        company
+      });
+
+      sendEmail(buyer.email, "Purchase Confirmation", buyerMsgHTML, (success, error) => {
+        if (!success) console.log("Buyer email error:", error);
+      });
+      
+      sendEmail(company.email, "Your Offer Was Bought", sellerMsgHTML, (success, error) => {
+        if (!success) console.log("Seller email error:", error);
+      });
+    }
+
+    res.json({ type: "result", result: "ok", message: contract });
+
+  } catch (error) {
+    console.error("Buy offer error:", error);
+    res.status(500).json({ type: "result", result: "fail", message: "Cannot buy offer" });
   }
 });
+
 
 /*
 * @route POST /admin/addmaterial
