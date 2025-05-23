@@ -14,6 +14,8 @@ How to use
   CHAT_SERVER_API_KEY=your-chatserver-api-key \
   MINIO_DEV=false \
   MINIO_ADDRESS=your_web_server_behind_nginx \
+  EMAIL_SENDER=sender_email_address  
+  EMAIL_PASS=sender_email_password
 
 2. Install min.io (https://github.com/minio/minio) file storage \
 for Ubuntu \
