@@ -1153,15 +1153,18 @@ app.post("/createoffer", async (req, res) => {
           }
 
         }
-        if (body.location != null && body.location != undefined){
-          const location = await Location.create({
-            name: offer.id,
-            latitude: body.location.lat,
-            longitude: body.location.lng,
-            type: 2,
-            companyID: body.companyID,
-            parent: offer.id
-          });
+        if (body.address != null && body.address != undefined && body.city != null && body.city != undefined && body.zipcode != null && body.zipcode != undefined){
+          const coords = await getCoords(body.address, body.zipcode, body.city);
+          if (coords.data != null && coords.data != undefined){
+            const location = await Location.create({
+              name: offer.id,
+              latitude: coords.data.lat,
+              longitude: coords.data.lng,
+              type: 2,
+              companyID: body.companyID,
+              parent: offer.id
+            });
+          }
         }
         res.json({"type":"result","result":"ok","message":offer});
     }
