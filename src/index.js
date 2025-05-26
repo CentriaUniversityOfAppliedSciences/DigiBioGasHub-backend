@@ -1475,7 +1475,10 @@ app.post("/buyoffer", async (req, res) => {
       offerID: body.offerId,
       buyer: decoded.id,
       price: body.price,
-      amount: body.amount
+      amount: body.amount,
+      unit: body.unit,
+      companyID: body.companyID,
+      status: "completed"
     });
 
     const remaining = offer.availableAmount - body.amount;
@@ -1537,6 +1540,90 @@ app.post("/buyoffer", async (req, res) => {
   } catch (error) {
     console.error("Buy offer error:", error);
     res.status(500).json({ type: "result", result: "fail", message: "Cannot buy offer" });
+  }
+});
+
+/*
+* @route POST /offercontracts
+* @param {uuid} offerID
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} contracts
+*/
+app.post("/offercontracts", async (req, res) => {
+  var token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  try{
+    if (result == true){
+      var body = req.body;
+      const contracts = await Contract.findAll({
+        include: [
+          {
+            model: Offer, 
+            include:[
+              { model: User, attributes: ["id", "name", "email", "phone"] },
+              { model: Company, attributes: ["id", "name", "address", "zipcode", "city"] }
+            ]
+          },
+          User, Company
+          
+        ],
+        where:{
+          offerID: body.id
+        }
+      });
+      res.json({"type":"result","result":"ok", "message":contracts});
+    }
+    else{
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot get contracts"});
+  }
+});
+
+/*
+* @route POST /contracts
+* @param {uuid} userID
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} contracts
+*/
+app.post("/contracts", async (req, res) => {
+  var token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  try{
+    if (result == true){
+      var body = req.body;
+      const contracts = await Contract.findAll({
+        include: [
+          {
+            model: Offer, 
+            include:[
+              { model: User, attributes: ["id", "name", "email", "phone"] },
+              { model: Company, attributes: ["id", "name", "address", "zipcode", "city"] }
+            ]
+          },
+          User, Company
+          
+        ],
+        where:{
+          buyer: decoded.id
+        }
+      });
+      res.json({"type":"result","result":"ok", "message":contracts});
+    }
+    else{
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot get contracts"});
   }
 });
 
@@ -1748,6 +1835,7 @@ app.post("/stations", async (req, res) => {
 app.post("/admin/createblogpost", async (req, res) => {
   try{
     var body = req.body;
+    console.log(body);
     const blogpost = await BlogPost.create({
       title: body.title,
       content: body.content,

@@ -4,6 +4,13 @@ import  sequelize  from './database.js';
 
 
 const Subscription = sequelize.define('Subscription',{
+    id:{
+        type: DataTypes.UUID,
+        defaultValue:DataTypes.UUIDV4,
+        primaryKey:true,
+        allowNull: false,
+        unique: true,
+    },
     userID:{
         type:DataTypes.UUID,
         allowNull:false
