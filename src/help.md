@@ -56,7 +56,7 @@ userlevel:{
     2: premium,
     20: company member,
     21: premium company member,
-    22: company admin/owner
+    23: company admin/owner
     99: admin
 }
 ```
