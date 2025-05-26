@@ -3,6 +3,7 @@ import  Hub  from './hub.js';
 import  Company  from './company.js';
 import  Location  from './location.js';
 import  UserCompany  from './usercompany.js';
+import Invitation from './invitation.js';
 import Logs from './logs.js';
 import Contract from './contract.js';
 import Offer from './offer.js';
@@ -32,4 +33,4 @@ Offer.hasMany(Location, { foreignKey: 'parent' });
 Subscription.belongsTo(User, { foreignKey: 'userID' });
 User.hasMany(BlogPost, { foreignKey: 'userID' });
 
-export { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription };
+export { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription };
