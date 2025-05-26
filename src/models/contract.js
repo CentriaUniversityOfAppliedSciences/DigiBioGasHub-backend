@@ -20,9 +20,21 @@ const Contract = sequelize.define('Contract',{
         type:DataTypes.DECIMAL,
         allowNull:false
     },
+    unit:{
+        type:DataTypes.INTEGER,
+        allowNull:false
+    },
     timestamp:{
         type:DataTypes.DATE,
         defaultValue:DataTypes.NOW
+    },
+    companyID:{
+        type:DataTypes.UUID,
+        allowNull:false
+    },
+    status:{
+        type:DataTypes.ENUM('pending', 'completed', 'cancelled'),
+        defaultValue:'pending'
     }
 });
 
