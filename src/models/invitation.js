@@ -27,8 +27,12 @@ const Invitation = sequelize.define('Invitation', {
         allowNull: false,
         defaultValue: 'pending',
     },
-    invitedBy: {
+    invitedById: {
         type: DataTypes.UUID,
+        allowNull: false,
+    },
+    invitedByName: {
+        type: DataTypes.STRING,
         allowNull: false,
     },
 });
