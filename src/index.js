@@ -17,6 +17,7 @@ import bodyParser from 'body-parser';
 import sendEmail from './email/emailService.js';
 import buyerEmailTemplate from './email/buyerEmailTemplate.js';
 import sellerEmailTemplate from './email/sellerEmailTemplate.js';
+import invitationEmailTemplate from './email/invitationEmailTemplate.js';
 import { OFFER_UNITS, OFFER_CARGOTYPE, MATERIAL_TYPE} from './email/enum.js';
 app.use(morgan('combined'));
 app.use(helmet({
@@ -26,7 +27,7 @@ app.disable('x-powered-by');
 import sequelize from './models/database.js';
 import { Op } from 'sequelize';
 import minioconnector from './minioconnector.js';
-import { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids, BlogPost, Files } from './models/index.js';
+import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files } from './models/index.js';
 
 sequelize.sync({ alter: false }).then(()=>{ // change alter:true if you want to update the database schema, fill in missing values in db manually, not for production
   //console.log("created");
@@ -2169,6 +2170,95 @@ app.post("/admin/deletematerial", async (req, res) => {
       }
     }
   });
+});
+
+/*
+* @route POST /invitemembers
+* @param {string} email
+* @param {uuid} companyID
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} invitation
+*/
+app.post("/company-admin/invitemembers", async (req, res) => {
+  var body = req.body;
+  const expiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  try {
+    const invitation = await Invitation.create({
+      email: body.email,
+      companyID: body.companyID,
+      expiryDate: expiryDate,
+      status: "pending",
+      invitedById: body.invitedById,
+      invitedByName: body.invitedByName
+    });
+
+    const invitationLink = `http://192.168.56.101:8100/join-company/${invitation.id}`;
+
+    const emailContent = invitationEmailTemplate(body.invitedByName, body.companyName, invitationLink, expiryDate);
+
+    sendEmail(body.email, "Company Invitation", emailContent, (success, error) => {
+      if (!success) {
+        console.error("Failed to send invitation email:", error);
+      }
+    });
+
+    res.json({ "type": "result", "result": "ok", "message": invitation });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to invite member" });
+  }
+});
+
+
+/*
+* @route POST /api/invitations/validate
+* @param {uuid} invitationId
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {string} success message
+*/
+app.post("/invitations/validate", async (req, res) => {
+  const { invitationId } = req.body;
+
+  try {
+
+    const invitation = await Invitation.findOne({
+      where: { id: invitationId },
+    });
+
+    console.log("Validating invitation:", invitationId);
+    console.log("Invitation details:", invitation);
+
+    if (!invitation) {
+      return res.status(404).json({
+        success: false,
+        message: "Invitation not found",
+      });
+    }
+
+    const currentDate = new Date();
+    if (new Date(invitation.expiryDate) < currentDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Invitation has expired",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Invitation is valid",
+    });
+  } catch (error) {
+    console.error("Error validating invitation:", error);
+    res.status(500).json({
+      success: false,
+      message: "Unable to validate invitation",
+    });
+  }
 });
 
 
