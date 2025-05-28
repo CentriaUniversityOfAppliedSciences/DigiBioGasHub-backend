@@ -2195,7 +2195,7 @@ app.post("/company-admin/invitemembers", async (req, res) => {
       invitedByName: body.invitedByName
     });
 
-    const invitationLink = `http://192.168.56.101:8100/join-company/${invitation.id}`;
+    const invitationLink = `http://192.168.56.101:8100/join-company/${invitation.companyID}/${invitation.id}`;
 
     const emailContent = invitationEmailTemplate(body.invitedByName, body.companyName, invitationLink, expiryDate);
 
@@ -2215,6 +2215,7 @@ app.post("/company-admin/invitemembers", async (req, res) => {
 
 /*
 * @route POST /api/invitations/validate
+* @param {uuid} companyID
 * @param {uuid} invitationId
 * @return {json}
   * @key type @value result
@@ -2222,42 +2223,30 @@ app.post("/company-admin/invitemembers", async (req, res) => {
   * @key message @value if fail {string} error message, if ok {string} success message
 */
 app.post("/invitations/validate", async (req, res) => {
-  const { invitationId } = req.body;
+  const { companyId, invitationId } = req.body;
 
   try {
 
     const invitation = await Invitation.findOne({
-      where: { id: invitationId },
+      where: {
+        id: invitationId,
+        companyID: companyId
+      }
     });
 
-    console.log("Validating invitation:", invitationId);
-    console.log("Invitation details:", invitation);
-
     if (!invitation) {
-      return res.status(404).json({
-        success: false,
-        message: "Invitation not found",
-      });
+      return res.status(404).json({ success: false, message: "Invitation not found" });
     }
 
     const currentDate = new Date();
     if (new Date(invitation.expiryDate) < currentDate) {
-      return res.status(400).json({
-        success: false,
-        message: "Invitation has expired",
-      });
+      return res.status(400).json({ success: false, message: "Invitation has expired" });
     }
 
-    res.json({
-      success: true,
-      message: "Invitation is valid",
-    });
+    res.json({ success: true, message: "Invitation is valid"});
   } catch (error) {
     console.error("Error validating invitation:", error);
-    res.status(500).json({
-      success: false,
-      message: "Unable to validate invitation",
-    });
+    res.status(500).json({ success: false, message: "Unable to validate invitation" });
   }
 });
 
