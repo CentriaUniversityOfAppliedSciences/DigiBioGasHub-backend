@@ -26,7 +26,7 @@ app.disable('x-powered-by');
 import sequelize from './models/database.js';
 import { Op } from 'sequelize';
 import minioconnector from './minioconnector.js';
-import { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids, BlogPost, Files } from './models/index.js';
+import { User, Hub, Company, Location, UserCompany, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription } from './models/index.js';
 
 sequelize.sync({ alter: false }).then(()=>{ // change alter:true if you want to update the database schema, fill in missing values in db manually, not for production
   //console.log("created");
@@ -760,7 +760,28 @@ app.post("/getallusers", async (req, res) => {
     const users = await User.findAll({
       attributes:["id", "name"],
     });
-    res.json({ type: "result", result: "ok", message: users });
+    const allowedUsers = [];
+    for (let i = 0; i < users.length; i++) {
+      const user = users[i];
+      const setting = await Settings.findOne({
+        where: {
+          userID: user.id,
+          key: "chat"
+        }
+      });
+      if (setting){
+        let valueObj = {};
+        try{
+          valueObj = typeof setting.value === 'string' ? JSON.parse(setting.value) : setting.value;
+        }catch (error) {
+          valueObj = {};
+        }
+        if (valueObj.chatVisibility === true) {
+          allowedUsers.push(user);
+        }
+      }
+    };
+    res.json({ type: "result", result: "ok", message: allowedUsers });
   } catch (error) {
     console.error(error);
     res.status(500).json({ type: "result", result: "fail", message: "cannot get users" });
@@ -1162,7 +1183,10 @@ app.post("/createoffer", async (req, res) => {
               longitude: coords.data.lng,
               type: 2,
               companyID: body.companyID,
-              parent: offer.id
+              parent: offer.id,
+              address: body.address,
+              zipcode: body.zipcode,
+              city: body.city
             });
           }
         }
@@ -1272,37 +1296,53 @@ app.post("/updateoffer", async (req, res) => {
             throw new Error('Failed to upload file to file to MinIO');
           }
         }
-        if (body.location != null && body.location != undefined && body.locationChanged == true){
+        if (body.location != null && body.location != undefined){
           if (body.oldLocation == true){
-            const location = await Location.update({
-              name: body.id,
-              latitude: body.location.lat,
-              longitude: body.location.lng,
-              type: 2,
-              companyID: body.companyID,
-              parent: body.id
-            },{
-              where:{
-                id: body.locationID
+            if (body.address != null && body.address != undefined && body.city != null && body.city != undefined && body.zipcode != null && body.zipcode != undefined){
+              const coords = await getCoords(body.address, body.zipcode, body.city);
+              if (coords.data != null && coords.data != undefined){
+                await Location.update({
+                  name: body.id,
+                  latitude: coords.data.lat,
+                  longitude: coords.data.lng,
+                  type: 2,
+                  companyID: body.companyID,
+                  parent: body.id,
+                  address: body.address,
+                  zipcode: body.zipcode,
+                  city: body.city
+                },{
+                  where:{
+                    id: body.locationID
+                  }
+                });
               }
-            });
+            }
           }
           else{
-            const location = await Location.create({
-              name: body.id,
-              latitude: body.location.lat,
-              longitude: body.location.lng,
-              type: 2,
-              companyID: body.companyID,
-              parent: body.id
-            });
-            await Offer.update({
-              locationID: location.id
-            },{
-              where:{
-                id: body.id
+            if (body.address != null && body.address != undefined && body.city != null && body.city != undefined && body.zipcode != null && body.zipcode != undefined){
+              const coords = await getCoords(body.address, body.zipcode, body.city);
+              if (coords.data != null && coords.data != undefined){
+                await Location.create({
+                  name: body.id,
+                  latitude: coords.data.lat,
+                  longitude: coords.data.lng,
+                  type: 2,
+                  companyID: body.companyID,
+                  parent: body.id,
+                  address: body.address,
+                  zipcode: body.zipcode,
+                  city: body.city
+                });
+                await Offer.update({
+                  locationID: location.id
+                },{
+                  where:{
+                    id: body.id
+                  }
+                });
               }
-            });
+            }
           }
         }
         
@@ -1629,6 +1669,89 @@ app.post("/contracts", async (req, res) => {
 
 
 /*
+route POST /updatesettings
+* @param {json} settings
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} settings
+*/
+app.post("/updatesettings", async (req, res) => {
+  try{
+    var body = req.body;
+    const token = req.headers['authorization'];
+    var [result,decoded] = await secTest(token);
+    if (result == true){
+      var sett = body.settings;
+      if (sett != null && sett != undefined){
+        var keys = Object.keys(sett);
+        var values = Object.values(sett);
+        for (let i = 0; i < keys.length; i++) {
+          const key = keys[i];
+          const value = values[i];
+          const [affectedRows] = await Settings.update(
+            { value: value },
+            {
+              where: {
+                userID: decoded.id,
+                key: key
+              }
+            }
+          );
+          if (affectedRows === 0) {
+            await Settings.create({
+              userID: decoded.id,
+              key: key,
+              value: value
+            });
+          }
+        }
+          /**/
+        res.json({"type":"result","result":"ok","message":"settings logged"});
+        
+      }
+      
+      //res.json({"type":"result","result":"ok","message":settings});
+    }
+    else{
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot save settings"});
+  }
+});
+
+/* route POST /getsettings
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {array} settings
+*/
+app.post("/getsettings", async (req, res) => {
+  try{
+    const token = req.headers['authorization'];
+    var [result,decoded] = await secTest(token);
+    if (result == true){
+      const settings = await Settings.findAll({
+        where:{
+          userID: decoded.id
+        }
+      });
+      res.json({"type":"result","result":"ok","message":settings});
+    }
+    else{
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({"type":"result","result":"fail","message": "cannot get settings"});
+  }
+});
+
+/*
 * @route POST /admin/addmaterial
 * @param {string} name
 * @param {string} description
@@ -1833,22 +1956,29 @@ app.post("/stations", async (req, res) => {
 * @param {integer} blogPostType
 */
 app.post("/admin/createblogpost", async (req, res) => {
-  try{
-    var body = req.body;
-    console.log(body);
-    const blogpost = await BlogPost.create({
-      title: body.title,
-      content: body.content,
-      image: body.image,
-      userID: body.userID,
-      blogPostType: body.blogPostType
-    });
-    res.json({"type":"result","result":"ok","message":blogpost});
-  }
-  catch (error) {
-    console.error(error);
-    res.status(500).json({"type":"result","result":"fail","message": "unable to  create blog post"});
-  }
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try{
+        var body = req.body;
+        console.log(body);
+        const blogpost = await BlogPost.create({
+          title: body.title,
+          content: body.content,
+          image: body.image,
+          userID: body.userID,
+          blogPostType: body.blogPostType
+        });
+        res.json({"type":"result","result":"ok","message":blogpost});
+      }
+      catch (error) {
+        console.error(error);
+        res.status(500).json({"type":"result","result":"fail","message": "unable to  create blog post"});
+      }
+    }
+    else{
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
 });
 
 
@@ -1865,28 +1995,35 @@ app.post("/admin/createblogpost", async (req, res) => {
   * @key message @value if fail {string} error message, if ok {json} updated blog post
 */
 app.post("/admin/updateblogpost", async (req, res) => {
-  try {
-    var body = req.body;
-    const [numberOfAffectedRows, blogpost]  = await BlogPost.update({
-      title: body.title,
-      content: body.content,
-      image: body.image,
-      blogPostType: body.blogPostType
-    }, {
-      where: {
-        postID: body.postID
-      },
-      returning: true
-    });
-    if (numberOfAffectedRows > 0) {
-      res.json({ "type": "result", "result": "ok", "message": blogpost[0] });
-    } else {
-      res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        var body = req.body;
+        const [numberOfAffectedRows, blogpost]  = await BlogPost.update({
+          title: body.title,
+          content: body.content,
+          image: body.image,
+          blogPostType: body.blogPostType
+        }, {
+          where: {
+            postID: body.postID
+          },
+          returning: true
+        });
+        if (numberOfAffectedRows > 0) {
+          res.json({ "type": "result", "result": "ok", "message": blogpost[0] });
+        } else {
+          res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({"type":"result","result":"fail","message": "unable to update blog post"});
+      }
     }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({"type":"result","result":"fail","message": "unable to update blog post"});
-  }
+    else{
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
 });
 
 
@@ -1929,15 +2066,21 @@ app.post("/getblogpost", async (req, res) => {
   * @key message @value if fail {string} error message, if ok {json} blog posts
 */
 app.post("/admin/getallblogposts", async (req, res) => {
-  try {
-    const blogposts = await BlogPost.findAll();
-    res.json({ "type": "result", "result": "ok", "message": blogposts });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get blog posts" });
-  }
-}
-);
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        const blogposts = await BlogPost.findAll();
+        res.json({ "type": "result", "result": "ok", "message": blogposts });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get blog posts" });
+      }
+    }
+    else{
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
 
 
 /*
@@ -1996,27 +2139,33 @@ app.post("/getallpublishedblogposts", async (req, res) => {
   * @key result @value ["ok", "fail"]
 */
 app.post("/admin/publishblogpost", async (req, res) => {
-  try {
-    var body = req.body;
-    const [numberOfAffectedRows, blogpost] = await BlogPost.update({
-      blogPostType: 1
-    }, {
-      where: {
-        postID: body.postID
-      },
-      returning: true
-    });
-    if (numberOfAffectedRows > 0) {
-      res.json({ "type": "result", "result": "ok" });
-    } else {
-      res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        var body = req.body;
+        const [numberOfAffectedRows, blogpost] = await BlogPost.update({
+          blogPostType: 1
+        }, {
+          where: {
+            postID: body.postID
+          },
+          returning: true
+        });
+        if (numberOfAffectedRows > 0) {
+          res.json({ "type": "result", "result": "ok" });
+        } else {
+          res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to change blog post status" });
+      }
     }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to change blog post status" });
-  }
-}
-);
+    else{
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
 
 
 /*
@@ -2027,27 +2176,33 @@ app.post("/admin/publishblogpost", async (req, res) => {
   * @key result @value ["ok", "fail"]
 */
 app.post("/admin/unpublishblogpost", async (req, res) => {
-  try {
-    var body = req.body;
-    const [numberOfAffectedRows, blogpost] = await BlogPost.update({
-      blogPostType: 0
-    }, {
-      where: {
-        postID: body.postID
-      },
-      returning: true
-    });
-    if (numberOfAffectedRows > 0) {
-      res.json({ "type": "result", "result": "ok" });
-    } else {
-      res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        var body = req.body;
+        const [numberOfAffectedRows, blogpost] = await BlogPost.update({
+          blogPostType: 0
+        }, {
+          where: {
+            postID: body.postID
+          },
+          returning: true
+        });
+        if (numberOfAffectedRows > 0) {
+          res.json({ "type": "result", "result": "ok" });
+        } else {
+          res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to change blog post status" });
+      }
     }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to change blog post status" });
-  }
-}
-);
+    else{
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
 
 
 /*
@@ -2058,24 +2213,30 @@ app.post("/admin/unpublishblogpost", async (req, res) => {
   * @key result @value ["ok", "fail"]
 */
 app.post("/admin/deleteblogpost", async (req, res) => {
-  try {
-    var body = req.body;
-    const numberOfDeletedRows = await BlogPost.destroy({
-      where: {
-        postID: body.postID
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        var body = req.body;
+        const numberOfDeletedRows = await BlogPost.destroy({
+          where: {
+            postID: body.postID
+          }
+        });
+        if (numberOfDeletedRows > 0) {
+          res.json({ "type": "result", "result": "ok" });
+        } else {
+          res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to delete blog post" });
       }
-    });
-    if (numberOfDeletedRows > 0) {
-      res.json({ "type": "result", "result": "ok" });
-    } else {
-      res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
     }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to delete blog post" });
-  }
-}
-);
+    else{
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
 
 /*
 * @route POST /admin/getmaterials

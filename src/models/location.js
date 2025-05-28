@@ -27,6 +27,18 @@ const Location = sequelize.define('Location',{
     companyID:{
         type: DataTypes.UUID,
         allowNull: false,
+    },
+    address:{
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    city:{
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    zipcode:{
+        type: DataTypes.STRING,
+        allowNull: true,
     }
 });
 export default Location;
