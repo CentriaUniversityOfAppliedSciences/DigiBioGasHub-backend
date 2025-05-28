@@ -1,6 +1,7 @@
-import { DataTypes } from "sequelize";
-import  sequelize  from './database.js';
+import { DataTypes } from 'sequelize';
 
+import  sequelize  from './database.js';
+import e from "express";
 
 const Settings = sequelize.define("Settings", {
   id: {
