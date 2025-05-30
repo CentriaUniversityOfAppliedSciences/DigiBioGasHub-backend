@@ -2343,10 +2343,41 @@ app.post("/admin/deletematerial", async (req, res) => {
   * @key message @value if fail {string} error message, if ok {json} invitation
 */
 app.post("/company-admin/invitemembers", async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+
+  const hasPermission = decoded?.userlevel === 23 || decoded?.userlevel === 99;
+
+  if (!result && !hasPermission) {
+    return res.status(401).json({ type: "result", result: "fail", message: "Unauthorized access" });
+  }
+  
   var body = req.body;
   const expiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
   try {
+
+    const existingInvitation = await Invitation.findOne({
+      where: {
+        email: body.email,
+        companyID: body.companyID,
+        status: "pending"
+      }
+    });
+
+    if (existingInvitation) {
+      const currentDate = new Date();
+      if (new Date(existingInvitation.expiryDate) >= currentDate) {
+        return res.json({ "type": "result", "result": "fail", "message": "Member is already invited to this company" });
+      } else {
+        await Invitation.destroy({
+          where: {
+            id: existingInvitation.id
+          }
+        });
+      }
+    }
+
     const invitation = await Invitation.create({
       email: body.email,
       companyID: body.companyID,
@@ -2380,13 +2411,20 @@ app.post("/company-admin/invitemembers", async (req, res) => {
 * @param {uuid} invitationId
 * @return {json}
   * @key type @value result
-  * @key result @value ["ok", "fail"]
+  * @key result @value ["ok", "alreadyMember", fail"]
   * @key message @value if fail {string} error message, if ok {string} success message
 */
 app.post("/invitations/validate", async (req, res) => {
-  const { companyId, invitationId } = req.body;
+
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  
+  if (!result) {
+    return res.status(401).json({ "type": "result", "result": "fail", "message": "Unauthorized access"  });
+  }
 
   try {
+    const { companyId, invitationId } = req.body;
 
     const invitation = await Invitation.findOne({
       where: {
@@ -2396,18 +2434,73 @@ app.post("/invitations/validate", async (req, res) => {
     });
 
     if (!invitation) {
-      return res.status(404).json({ success: false, message: "Invitation not found" });
+      return res.status(404).json({ "type": "result", "result": "fail", "message": "Invitation not found" });
     }
 
     const currentDate = new Date();
     if (new Date(invitation.expiryDate) < currentDate) {
-      return res.status(400).json({ success: false, message: "Invitation has expired" });
+      return res.status(400).json({ "type": "result", "result": "fail", "message": "Invitation has expired" });
     }
 
-    res.json({ success: true, message: "Invitation is valid"});
+    const userId = decoded.id;
+    const existingAssociation = await UserCompany.findOne({
+      where: {
+        userID: userId,
+        companyID: companyId
+      }
+    });
+
+    if (existingAssociation) {
+      return res.status(200).json({ "type": "result", "result": "alreadyMember", "message": "User is already associated with this company" 
+      });
+    }
+
+    return res.status(200).json({ "type": "result", "result": "ok", "message": "Invitation is valid" });
   } catch (error) {
     console.error("Error validating invitation:", error);
-    res.status(500).json({ success: false, message: "Unable to validate invitation" });
+    res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to validate invitation" });
+  }
+});
+
+
+/*
+* @route POST /invitations/accept
+* @param {uuid} invitationId
+* @param {uuid} userId
+* @param {uuid} companyId
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {string} success message
+*/
+app.post("/invitations/accept", async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  
+  if (!result) {
+    return res.status(401).json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+  }
+
+  try {
+    const userId = decoded.id;
+    const { invitationId, companyId } = req.body;
+
+    await UserCompany.create({
+      userID: userId,
+      companyID: companyId,
+      userlevel: 20
+    });
+
+    await Invitation.destroy({
+      where: {
+        id: invitationId
+      }
+    });
+   
+    res.json({ "type": "result", "result": "ok", "message": "Invitation accepted successfully" });
+  } catch (error) {
+    console.error("Error accepting invitation:", error);
+    res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to accept invitation" });
   }
 });
 
