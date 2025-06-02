@@ -2387,7 +2387,7 @@ app.post("/company-admin/invitemembers", async (req, res) => {
       invitedByName: body.invitedByName
     });
 
-    const invitationLink = `http://192.168.56.101:8100/join-company/${invitation.companyID}/${invitation.id}`;
+    const invitationLink = `https://digibiogashubs.swedencentral.cloudapp.azure.com/join-company/${invitation.companyID}/${invitation.id}`;
 
     const emailContent = invitationEmailTemplate(body.invitedByName, body.companyName, invitationLink, expiryDate);
 
