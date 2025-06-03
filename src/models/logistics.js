@@ -39,7 +39,7 @@ const Logistics = sequelize.define('Logistics', {
         allowNull: false,
     },
     haulType: {
-        type: DataTypes.STRING,
+        type: DataTypes.ARRAY(DataTypes.STRING),
         allowNull: false,
     }
 });
