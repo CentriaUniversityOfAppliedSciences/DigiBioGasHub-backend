@@ -13,6 +13,7 @@ import BlogPost from './BlogPost.js';
 import Files from './files.js';
 import Subscription from './subscription.js';
 import Settings from './settings.js';
+import Logistics from './logistics.js';
 
 Company.belongsToMany(User, { through: UserCompany, foreignKey: 'companyID' });
 User.belongsToMany(Company, { through: UserCompany, foreignKey: 'userID' });
@@ -30,7 +31,10 @@ Offer.hasMany(Contract, {foreignKey:"offerID"});
 Offer.hasMany(Files, { foreignKey: 'parent' });
 Offer.hasMany(Location, { foreignKey: 'parent' });
 
+Company.hasMany(Logistics, { foreignKey: 'companyID' });
+Logistics.belongsTo(Company, { foreignKey: 'companyID' });
+
 Subscription.belongsTo(User, { foreignKey: 'userID' });
 User.hasMany(BlogPost, { foreignKey: 'userID' });
 
-export { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription };
+export { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics };

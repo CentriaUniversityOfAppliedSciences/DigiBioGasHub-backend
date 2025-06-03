@@ -27,7 +27,7 @@ app.disable('x-powered-by');
 import sequelize from './models/database.js';
 import { Op } from 'sequelize';
 import minioconnector from './minioconnector.js';
-import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription } from './models/index.js';
+import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics } from './models/index.js';
 
 sequelize.sync({ alter: false }).then(()=>{ // change alter:true if you want to update the database schema, fill in missing values in db manually, not for production
   //console.log("created");
@@ -2501,6 +2501,82 @@ app.post("/invitations/accept", async (req, res) => {
   } catch (error) {
     console.error("Error accepting invitation:", error);
     res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to accept invitation" });
+  }
+});
+
+
+/*
+* @route POST /logistics/register
+* @param {uuid} companyID
+* @param {string} address
+* @param {string} city
+* @param {string} zipcode
+* @param {string} haulTyp
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} logistics entry
+*/
+
+app.post('/logistics/register', async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+
+  if (!result) {
+    return res.status(401).json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+  }
+
+  try {
+    const {
+      companyID,
+      companyName,
+      address,
+      city,
+      zipcode,
+      haulType,
+    } = req.body;
+
+    const company = await Company.findOne({
+      where: {
+        id: companyID,
+        name: companyName
+      }
+    });
+
+    if (!company) {
+      return res.status(400).json({ "type": "result", "result": "fail", "message": "Invalid company ID or name" });
+    }
+
+    const userCompany = await UserCompany.findOne({
+      where: {
+        userID: decoded.id,
+        companyID: companyID
+      }
+    });
+
+    if (!userCompany) {
+      return res.status(403).json({ "type": "result", "result": "fail", "message": "Unauthorized user" });
+    }
+
+    const geoRes = await getCoords(address, zipcode, city );
+
+    const { lat, lng } = geoRes.data;
+
+    const logistics = await Logistics.create({
+      companyID,
+      companyName,
+      address,
+      city,
+      zipcode,
+      latitude: lat,
+      longitude: lng,
+      haulType
+    });
+
+    res.json({ "type": "result", "result": "ok", "message": logistics });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to register logistics entry" });
   }
 });
 
