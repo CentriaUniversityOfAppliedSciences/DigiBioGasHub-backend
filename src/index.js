@@ -19,6 +19,10 @@ import buyerEmailTemplate from './email/buyerEmailTemplate.js';
 import sellerEmailTemplate from './email/sellerEmailTemplate.js';
 import invitationEmailTemplate from './email/invitationEmailTemplate.js';
 import { OFFER_UNITS, OFFER_CARGOTYPE, MATERIAL_TYPE} from './email/enum.js';
+import logisticsRouter from './routes/logistics.js';
+import adminRouter from './routes/admin.js';
+import companyRouter from './routes/company.js';
+import { getCoords, secTest, adminTest } from './functions/utils.js';
 app.use(morgan('combined'));
 app.use(helmet({
 
@@ -161,53 +165,7 @@ app.use(async (req, res, next) => {
   }
 })
 
-/*
-* function to check if jwt token is valid, uses jwt.verify
-*/
-async function secTest(token){
-  try{
-    const decoded = jwt.verify(token, process.env.JWT_KEY);
-    return [true,decoded];
-  }
-  catch(error){
-    return [false,null];
-  }
-}
 
-/*
-* function to check if user is admin, uses jwt.verify
-*/
-
-async function adminTest(token){
-  try{
-    const decoded = jwt.verify(token, process.env.JWT_KEY);
-    if (decoded.userlevel == 99){
-      return [true,decoded];
-    }
-    else{
-      return [false,decoded];
-    }
-  }
-  catch(error){
-    return [false,null];
-  }
-}
-
-/*
-* test route, TODO: remove
-*/
-app.get('/', (req, res) => {
-    res.send('Hello World!')
-});
-
-/*
-* test route, TODO: remove
-*/
-app.post('/secure', async (req,res)=>{
-  
-    res.json({ message: 'Protected route achieved' });
-      
-});
 
 /*
 * @route POST /login
@@ -346,10 +304,6 @@ app.post("/createcompany", async (req, res) => {
         level: 2
       });
     }
-    
-    
-    
-    
   }
   catch (error) {
     console.error(error);
@@ -363,80 +317,6 @@ app.post("/createcompany", async (req, res) => {
   }
 });
 
-/*
-* function to get coordinates from address, zipcode and city
-* @param {string} address
-* @param {string} zipcode
-* @param {string} city
-
-*/
-
-function getCoords(address, zipcode, city){
-  
-  
-	return new Promise(async (resolve, reject) => {
-		try {
-			axios.get('https://avoin-paikkatieto.maanmittauslaitos.fi/geocoding/v2/pelias/search', {
-				params: {
-					"text": address + " " + zipcode + " " + city,
-					"sources": "interpolated-road-addresses",
-					"lang": "fi",
-					"api-key": process.env.MML_API_KEY
-				}
-			}).then(async (x) => {
-				console.log(x);
-				if (x.status == 200 && x.data != undefined && x.data.features != undefined && x.data.features.length > 0 && x.data.features[0].geometry != undefined) {
-					const result = x.data.features[0].geometry.coordinates;//proj4("EPSG:3067", "EPSG:4326", x.data.features[0].geometry.coordinates);
-					const obj = { lat: result[1], lng: result[0] };
-					//res.send({ "data": x.data, "result": "ok" });
-					resolve({ "data": obj, "result": "ok" });
-				}
-				else if (x.data == undefined || x.data.features == undefined || x.data.features.length == 0 || x.data.features[0].geometry == undefined) {
-					try {
-						axios.get('https://avoin-paikkatieto.maanmittauslaitos.fi/geocoding/v2/pelias/search', {
-							params: {
-								"text": address,
-								"sources": "addresses",
-								"lang": "fi",
-								"api-key": process.env.MML_API_KEY
-							}
-						}).then(async (x) => {
-							console.log(x);
-							if (x.status == 200 && x.data != undefined && x.data.features != undefined && x.data.features.length > 0 && x.data.features[0].geometry != undefined) {
-								const result = x.data.features[0].geometry.coordinates;//proj4("EPSG:3067", "EPSG:4326", x.data.features[0].geometry.coordinates);
-								const obj = { lat: result[1], lng: result[0] };
-								//res.send({ "data": x.data, "result": "ok" });
-								resolve({ "data": obj, "result": "ok" });
-							}
-							else if (x.data == undefined || x.data.features == undefined || x.data.features.length == 0 || x.data.features[0].geometry == undefined) {
-
-								console.log("Address not found for address: " + address);
-								//res.send({ "data": "address not found" });
-								resolve({ "data": "address not found", "result": "nfound" });
-							}
-							else {
-								reject(x);
-							}
-						}).catch((e) => {
-							reject(e);
-						})
-					}
-					catch (e) {
-						reject(e);
-				  }
-        }
-				else {
-					reject(x);
-				}
-			}).catch((e) => {
-				reject(e);
-			})
-		}
-		catch (e) {
-			reject(e);
-		}
-	});
-}
 
 /*
 * @route POST /getusercompanies
@@ -541,46 +421,6 @@ app.post("/companyoffers", async (req, res) => {
   }
 });
 
-/*
-* @route POST /admin/getallcompanies
-* @return {json} 
-  * @key type @value result
-  * @key result @value ["ok", "fail"]
-  * @key message @value if fail {string} error message, if ok {json} companies
-*/
-app.post("/admin/getallcompanies", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if (result[0]) {
-      try {
-        const companies = await Company.findAll();
-        res.json({ "type": "result", "result": "ok", "message": companies });
-        Logs.create({
-          userID: result[1].id,
-          action: req.url,
-          text: "access granted: " + req.url + " from ip:" + req.ip,
-          level: 1
-        });
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get companies" });
-        Logs.create({
-          userID: null,
-          action: req.url,
-          text: "error: " + error + " from ip:" + req.ip,
-          level: 3
-        });
-      }
-    } else {
-      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
-      Logs.create({
-        userID: null,
-        action: req.url,
-        text: "not authorized: " + req.url + " from ip:" + req.ip,
-        level: 2
-      });
-    }
-  });
-});
 
 
 /*
@@ -651,78 +491,6 @@ app.post("/updatecompany", async (req, res) => {
   }
 });
 
-
-/*
-* @route POST admin/updatecompanystatus
-* @param {uuid} id
-* @param {integer} status
-* @return {json} 
-  * @key type @value result
-  * @key result @value ["ok", "fail"]
-*/
-
-app.post("/admin/updatecompanystatus", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if (result[0]) {
-      try {
-        const { id, status } = req.body;
-    
-        if (!id || status === undefined) {
-          res.status(400).json({ result: "error", "message": "Company ID and status are required" });
-          Logs.create({
-            userID: result[1].id,
-            action: req.url,
-            text: "Company ID or status missing from ip:" + req.ip,
-            level: 3
-          });
-        }
-    
-        const [updated] = await Company.update(
-          { companyStatus: status },
-          { where: { id } }
-        );
-    
-        if (updated) {
-          res.json({ "type": "result", "result": "ok", "message": "Company status updated successfully" });
-          Logs.create({
-            userID: result[1].id,
-            action: req.url,
-            text: "company status updated: " + req.url + " from ip:" + req.ip,
-            level: 1
-          });
-          
-        } else {
-          res.status(404).json({ result: "error", "message": "Company not found" });
-          Logs.create({
-            userID: result[1].id,
-            action: req.url,
-            text: "Company not found: " + req.url + " from ip:" + req.ip,
-            level: 1
-          });
-        }
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ "type": "result", "result": "fail", "message": "cannot update company status" });
-        Logs.create({
-          userID: null,
-          action: req.url,
-          text: "error: " + error + " from ip:" + req.ip,
-          level: 3
-        });
-      }
-    }
-    else{
-      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
-      Logs.create({
-        userID: null,
-        action: req.url,
-        text: "unauthorized: " + req.url + " from ip:" + req.ip,
-        level: 2
-      });
-    }
-  });
-  
-});
 
 /*
 * @route POST /getuser
@@ -813,43 +581,6 @@ app.post("/getusername", async (req, res) => {
 });
 
 
-/*
-* @route POST /admin/getlimitedusers
-* @param {integer} page
-* @param {integer} limit
-* @return {json}
-  * @key type @value result
-  * @key result @value {json} users
-*/
-
-app.post("/admin/getlimitedusers", async (req, res) => {
-  try {
-    let { page, limit } = req.body;
-    const allowedLimits = [5, 25, 50, 75, 100];
-
-    if (!allowedLimits.includes(limit)) {
-      return res.status(400).json({
-        type: "result",
-        result: "fail",
-        message: "Invalid limit. Allowed values are 5, 25, 50, 75, 100.",
-      });
-    }
-
-    const users = await User.findAll({
-      offset: page * limit,
-      limit: limit,
-      attributes: { exclude: ["password", "authMethod", "language"] },
-    });
-
-    const totalUsers = await User.count();
-
-    res.json({ type: "result", result: "ok", message: users, total: totalUsers });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ type: "result", result: "fail", message: "cannot get users" });
-  }
-});
-
 /* user updates their own profile, uses jwt token for user id */
 /* @route POST /updateuser
 * @param {string} name
@@ -892,50 +623,7 @@ app.post("/updateuser", async (req, res) => {
 });
 
 
-/* update user with admin rights */
-/* @route POST /admin/updateuser
-* @param {uuid} id
-* @param {string} username
-* @param {string} name
-* @param {string} email
-* @param {string} phone
-* @param {integer} userlevel
-* @param {integer} hubID
-* @return {json}
-  * @key type @value result
-  * @key result @value ["ok", "fail"]
-  * @key message @value updated user
-*/
-app.post("/admin/updateuser", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if (result[0]){
-      try{
-        var body = req.body;
-        const user = await User.update({
-          username: body.username,
-          name: body.name,
-          email: body.email,
-          phone: body.phone,
-          userlevel: body.userlevel,
-          hubID: body.hubID
-        },{
-          where:{
-            id: body.id
-          }
-        });
-        res.json({"type":"result","result":"ok","message":user});
-      }
-      catch (error) {
-        console.error(error);
-        res.status(500).json({"type":"result","result":"fail","message": "cannot update user"});
-      }
-    }
-    else{
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
-    }
-  });
-  
-});
+
 
 /*
 * @route POST /deleteuser
@@ -1752,42 +1440,7 @@ app.post("/getsettings", async (req, res) => {
   }
 });
 
-/*
-* @route POST /admin/addmaterial
-* @param {string} name
-* @param {string} description
-* @param {integer} type
-* @param {string} quality
-* @param {json} other
-* @param {string} locality
-* @return {json} 
-  * @key type @value result
-  * @key result @value ["ok", "fail"]
-  * @key message @value if "fail" {string} error message, if "ok" {json} material
-*/
-app.post("/admin/addmaterial", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if(result[0]){
-      try{
-        var body = req.body;
-        const material = await Material.create({
-          name: body.name,
-          description: body.description,
-          type: body.type,
-          quality: body.quality,
-          other: body.other,
-          locality: body.locality
-        });
-        res.json({"type":"result","result":"ok","message":material});
-      }
-      catch (error) {
-        console.error(error);
-        res.status(500).json({"type":"result","result":"fail","message": "cannot create material"});
-      }
-    }
-  });
-  
-});
+
 
 /* 
 * @route POST /getmaterials
@@ -1949,86 +1602,6 @@ app.post("/stations", async (req, res) => {
 
 
 /*
-* @route POST /admin/createblogpost
-* @param {string} title
-* @param {text} content
-* @param {string} image (optional)
-* @param {uuid} userID
-* @param {integer} blogPostType
-*/
-app.post("/admin/createblogpost", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if (result[0]) {
-      try{
-        var body = req.body;
-        console.log(body);
-        const blogpost = await BlogPost.create({
-          title: body.title,
-          content: body.content,
-          image: body.image,
-          userID: body.userID,
-          blogPostType: body.blogPostType
-        });
-        res.json({"type":"result","result":"ok","message":blogpost});
-      }
-      catch (error) {
-        console.error(error);
-        res.status(500).json({"type":"result","result":"fail","message": "unable to  create blog post"});
-      }
-    }
-    else{
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
-    }
-  });
-});
-
-
-/*
-* @route POST /admin/updateblogpost
-* @param {uuid} postID
-* @param {string} title
-* @param {text} content 
-* @param {string} image
-* @param {integer} blogPostType
-* @return {json} 
-  * @key type @value result
-  * @key result @value ["ok", "fail"]
-  * @key message @value if fail {string} error message, if ok {json} updated blog post
-*/
-app.post("/admin/updateblogpost", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if (result[0]) {
-      try {
-        var body = req.body;
-        const [numberOfAffectedRows, blogpost]  = await BlogPost.update({
-          title: body.title,
-          content: body.content,
-          image: body.image,
-          blogPostType: body.blogPostType
-        }, {
-          where: {
-            postID: body.postID
-          },
-          returning: true
-        });
-        if (numberOfAffectedRows > 0) {
-          res.json({ "type": "result", "result": "ok", "message": blogpost[0] });
-        } else {
-          res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
-        }
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({"type":"result","result":"fail","message": "unable to update blog post"});
-      }
-    }
-    else{
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
-    }
-  });
-});
-
-
-/*
 * @route POST /getblogpost
 * @param {uuid} postID
 * @return {json} 
@@ -2056,31 +1629,6 @@ app.post("/getblogpost", async (req, res) => {
     console.error(error);
     res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get blog post" });
   }
-});
-
-
-/*
-* @route POST /admin/getallblogposts
-* @return {json} 
-  * @key type @value result
-  * @key result @value ["ok", "fail"]
-  * @key message @value if fail {string} error message, if ok {json} blog posts
-*/
-app.post("/admin/getallblogposts", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if (result[0]) {
-      try {
-        const blogposts = await BlogPost.findAll();
-        res.json({ "type": "result", "result": "ok", "message": blogposts });
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get blog posts" });
-      }
-    }
-    else{
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
-    }
-  });
 });
 
 
@@ -2131,207 +1679,6 @@ app.post("/getallpublishedblogposts", async (req, res) => {
 }
 );
 
-
-/*
-* @route POST /admin/publishblogpost
-* @param {uuid} postID
-* @return {json} 
-  * @key type @value result
-  * @key result @value ["ok", "fail"]
-*/
-app.post("/admin/publishblogpost", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if (result[0]) {
-      try {
-        var body = req.body;
-        const [numberOfAffectedRows, blogpost] = await BlogPost.update({
-          blogPostType: 1
-        }, {
-          where: {
-            postID: body.postID
-          },
-          returning: true
-        });
-        if (numberOfAffectedRows > 0) {
-          res.json({ "type": "result", "result": "ok" });
-        } else {
-          res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
-        }
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to change blog post status" });
-      }
-    }
-    else{
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
-    }
-  });
-});
-
-
-/*
-* @route POST /admin/unpublishblogpost
-* @param {uuid} postID
-* @return {json} 
-  * @key type @value result
-  * @key result @value ["ok", "fail"]
-*/
-app.post("/admin/unpublishblogpost", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if (result[0]) {
-      try {
-        var body = req.body;
-        const [numberOfAffectedRows, blogpost] = await BlogPost.update({
-          blogPostType: 0
-        }, {
-          where: {
-            postID: body.postID
-          },
-          returning: true
-        });
-        if (numberOfAffectedRows > 0) {
-          res.json({ "type": "result", "result": "ok" });
-        } else {
-          res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
-        }
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to change blog post status" });
-      }
-    }
-    else{
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
-    }
-  });
-});
-
-
-/*
-* @route POST /admin/deleteblogpost
-* @param {uuid} postID
-* @return {json} 
-  * @key type @value result
-  * @key result @value ["ok", "fail"]
-*/
-app.post("/admin/deleteblogpost", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if (result[0]) {
-      try {
-        var body = req.body;
-        const numberOfDeletedRows = await BlogPost.destroy({
-          where: {
-            postID: body.postID
-          }
-        });
-        if (numberOfDeletedRows > 0) {
-          res.json({ "type": "result", "result": "ok" });
-        } else {
-          res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
-        }
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to delete blog post" });
-      }
-    }
-    else{
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
-    }
-  });
-});
-
-/*
-* @route POST /admin/getmaterials
-* @return {json}
-  * @key type @value result
-  * @key result @value ["ok", "fail"]
-  * @key message @value if fail {string} error message, if ok {json} materials
-*/
-
-app.post("/admin/getmaterials", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if (result[0]) {
-      try {
-        const materials = await Material.findAll();
-        res.json({ "type": "result", "result": "ok", "message": materials });
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get materials" });
-      }
-    }
-    else{
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
-    }
-  });
-  
-});
-
-/*
-* @route POST /admin/editmaterial
-* @param {uuid} id
-* @param {string} name
-* @param {string} description
-* @param {integer} type
-* @param {string} quality
-* @param {json} other
-* @param {string} locality
-* @return {json}
-  * @key type @value result
-  * @key result @value ["ok", "fail"]
-  * @key message @value if fail {string} error message, if ok {json} material
-*/
-
-app.post("/admin/editmaterial", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if (result[0]) {
-      try {
-        var body = req.body;
-        const material = await Material.update({
-          name: body.name,
-          description: body.description,
-          type: body.type,
-          quality: body.quality,
-          other: body.other,
-          locality: body.locality
-        }, {
-          where: {
-            id: body.id
-          }
-        });
-        res.json({ "type": "result", "result": "ok", "message": material });
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to update material" });
-      }
-    }
-  });
-});
-
-/*
-* @route POST /admin/deletematerial
-* @param {uuid} id
-* @return {json}
-  * @key type @value result
-  * @key result @value ["ok", "fail"]
-  * @key message @value if fail {string} error message, if ok {json} material
-*/
-app.post("/admin/deletematerial", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if (result[0]) {
-      try {
-        var body = req.body;
-        const material = await Material.destroy({
-          where: {
-            id: body.id
-          }
-        });
-        res.json({ "type": "result", "result": "ok", "message": material });
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to delete material" });
-      }
-    }
-  });
-});
 
 /*
 * @route POST /invitemembers
@@ -2505,81 +1852,10 @@ app.post("/invitations/accept", async (req, res) => {
 });
 
 
-/*
-* @route POST /logistics/register
-* @param {uuid} companyID
-* @param {string} address
-* @param {string} city
-* @param {string} zipcode
-* @param {string} haulTyp
-* @return {json}
-  * @key type @value result
-  * @key result @value ["ok", "fail"]
-  * @key message @value if fail {string} error message, if ok {json} logistics entry
-*/
 
-app.post('/logistics/register', async (req, res) => {
-  const token = req.headers['authorization'];
-  var [result,decoded] = await secTest(token);
-
-  if (!result) {
-    return res.status(401).json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
-  }
-
-  try {
-    const {
-      companyID,
-      companyName,
-      address,
-      city,
-      zipcode,
-      haulType,
-    } = req.body;
-
-    const company = await Company.findOne({
-      where: {
-        id: companyID,
-        name: companyName
-      }
-    });
-
-    if (!company) {
-      return res.status(400).json({ "type": "result", "result": "fail", "message": "Invalid company ID or name" });
-    }
-
-    const userCompany = await UserCompany.findOne({
-      where: {
-        userID: decoded.id,
-        companyID: companyID
-      }
-    });
-
-    if (!userCompany) {
-      return res.status(403).json({ "type": "result", "result": "fail", "message": "Unauthorized user" });
-    }
-
-    const geoRes = await getCoords(address, zipcode, city );
-
-    const { lat, lng } = geoRes.data;
-
-    const logistics = await Logistics.create({
-      companyID,
-      companyName,
-      address,
-      city,
-      zipcode,
-      latitude: lat,
-      longitude: lng,
-      haulType
-    });
-
-    res.json({ "type": "result", "result": "ok", "message": logistics });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to register logistics entry" });
-  }
-});
-
+app.use('/logistics', logisticsRouter);
+app.use('/admin', adminRouter);
+app.use('/company', companyRouter);
 
 //these must be at the bottom but before listen !!!!
 
