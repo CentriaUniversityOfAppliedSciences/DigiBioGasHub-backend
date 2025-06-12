@@ -5,7 +5,7 @@ import  sequelize  from './database.js';
 
 const Bids = sequelize.define('Bids',{
     offerID:{
-        type:DataTypes.INTEGER,
+        type:DataTypes.UUID,
         allowNull:false
     },
     price:{

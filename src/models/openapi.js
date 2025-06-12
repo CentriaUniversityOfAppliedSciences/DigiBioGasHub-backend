@@ -2,7 +2,7 @@ import { DataTypes } from 'sequelize';
 
 import  sequelize  from './database.js';
 
-const Settings = sequelize.define("Settings", {
+const openapi = sequelize.define("openapi", {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
@@ -14,14 +14,14 @@ const Settings = sequelize.define("Settings", {
     type: DataTypes.UUID,
     allowNull: false,
   },
-  key: {
-    type: DataTypes.STRING,
+  companyID:{
+    type: DataTypes.UUID,
     allowNull: false,
   },
   value: {
-    type: DataTypes.JSON,
+    type: DataTypes.TEXT,
     allowNull: false,
   }
 });
 
-export default Settings;
+export default openapi;

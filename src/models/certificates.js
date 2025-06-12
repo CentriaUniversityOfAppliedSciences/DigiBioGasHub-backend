@@ -2,7 +2,7 @@ import { DataTypes } from 'sequelize';
 
 import  sequelize  from './database.js';
 
-const Settings = sequelize.define("Settings", {
+const Certificates = sequelize.define("certificates", {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
@@ -10,11 +10,11 @@ const Settings = sequelize.define("Settings", {
     allowNull: false,
     unique: true,
   },
-  userID: {
+  companyID:{
     type: DataTypes.UUID,
     allowNull: false,
   },
-  key: {
+  key:{
     type: DataTypes.STRING,
     allowNull: false,
   },
@@ -24,4 +24,4 @@ const Settings = sequelize.define("Settings", {
   }
 });
 
-export default Settings;
+export default Certificates;
