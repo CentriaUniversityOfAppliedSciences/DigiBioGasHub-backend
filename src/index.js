@@ -371,6 +371,62 @@ app.post("/getusercompanies", async (req, res) => {
 
 
 /*
+* @route POST /getverifiedusercompanies
+* @where user.id = jwt_token.id
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} companies
+*/
+app.post("/getverifiedusercompanies", async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  try{
+    if (result == true){
+      const user = await User.findOne({
+        where:{
+          id: decoded.id
+        },
+      });
+      user.getCompanies({
+        where: {
+          companyStatus: 1 
+        }
+      }).then((companies) => {
+        res.json({"type":"result","result":"ok", "message":companies});
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "access granted " + req.url + " from ip:" + req.ip,
+          level: 1
+        });
+      }).
+      catch((error) => {
+        console.error(error);
+        res.status(500).json({"type":"result","result":"fail","message": "cannot getverifiedusercompanies"});
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "access not granted " + req.url + " from ip:" + req.ip,
+          level: 2
+        });
+      });
+    }
+  }
+  catch (error) { 
+    console.error(error); 
+    res.status(500).json({"type":"result","result":"fail","message": "cannot getverifiedusercompanies"});
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "error " + error + " from ip:" + req.ip,
+      level: 3
+    });
+  }
+});
+
+
+/*
 * @route POST /companyoffers
 * @param {uuid} companyID
 * @return {json} 
