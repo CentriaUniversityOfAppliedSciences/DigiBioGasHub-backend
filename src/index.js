@@ -456,6 +456,7 @@ app.post("/updatecompany", async (req, res) => {
         phone: body.phone,
         companyType: body.companyType,
         web: body.web,
+        companyStatus: 0,
         updateAt: new Date()
       },{
         where:{
