@@ -331,29 +331,21 @@ app.post("/getusercompanies", async (req, res) => {
   var [result,decoded] = await secTest(token);
   try{
     if (result == true){
-      const user = await User.findOne({
-        where:{
-          id: decoded.id
-        },
+      
+      const companies = await UserCompany.findAll({
+        where: { userID: decoded.id },
+        include: [
+          {
+            model: Company
+          }
+        ]
       });
-      user.getCompanies().then((companies) => {
-        res.json({"type":"result","result":"ok", "message":companies});
-        Logs.create({
-          userID: decoded.id,
-          action: req.url,
-          text: "access granted " + req.url + " from ip:" + req.ip,
-          level: 1
-        });
-      }).
-      catch((error) => {
-        console.error(error);
-        res.status(500).json({"type":"result","result":"fail","message": "cannot getusercompanies"});
-        Logs.create({
-          userID: null,
-          action: req.url,
-          text: "access not granted " + req.url + " from ip:" + req.ip,
-          level: 2
-        });
+      res.json({ "type": "result", "result": "ok", "message": companies });
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access granted " + req.url + " from ip:" + req.ip,
+        level: 1
       });
     }
   }
@@ -368,7 +360,6 @@ app.post("/getusercompanies", async (req, res) => {
     });
   }
 });
-
 
 /*
 * @route POST /companyoffers

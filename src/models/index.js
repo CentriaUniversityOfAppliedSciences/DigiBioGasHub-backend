@@ -17,6 +17,8 @@ import Logistics from './logistics.js';
 
 Company.belongsToMany(User, { through: UserCompany, foreignKey: 'companyID' });
 User.belongsToMany(Company, { through: UserCompany, foreignKey: 'userID' });
+UserCompany.belongsTo(User, { foreignKey: 'userID' });
+UserCompany.belongsTo(Company, { foreignKey: 'companyID' });
 
 Company.hasMany(Location, { foreignKey: "companyID" });
 Offer.belongsTo(Company, {foreignKey:"companyID"});
