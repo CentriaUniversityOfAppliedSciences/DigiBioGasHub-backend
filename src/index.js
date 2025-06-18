@@ -875,7 +875,7 @@ app.post("/createoffer", async (req, res) => {
     });
 
     if (company == null || company.dataValues == null || company.dataValues.companyStatus != 1) {
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access, company not verified" });
+      return res.json({ "type": "result", "result": "fail", "message": "Invalid Company" });
     }
 
     try {
