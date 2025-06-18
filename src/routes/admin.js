@@ -205,6 +205,44 @@ router.post("/getallcompanies", async (req, res) => {
 });
 
 
+/*
+* @route POST /admin/deletecompany
+* @param {uuid} id
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} company
+*/
+router.post("/deletecompany", async (req, res) => {
+  console.log("request body:", req.body);
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        var body = req.body;
+        const id = body.id;
+        if (!id) {
+          return res.status(400).json({ type: "result", result: "fail", message: "Company ID is required" });
+        }
+
+        await Offer.destroy({ where: { companyID: id } });
+
+        const company = await Company.destroy({ where: { id } }).then(() => {
+          UserCompany.destroy({
+            where: {
+              companyID: body.id
+            }
+          });
+        });
+
+        res.json({ type: "result", result: "ok", message: company });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ type: "result", result: "fail", message: "unable to delete company" });
+      }
+    }
+  });
+});
+
 
 /*
 * @route POST /admin/addmaterial
@@ -549,9 +587,5 @@ router.post("/updateblogpost", async (req, res) => {
     }
   });
 });
-
-
-
-
 
 export default router;
