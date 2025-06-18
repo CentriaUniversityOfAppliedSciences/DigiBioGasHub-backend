@@ -761,6 +761,7 @@ app.post("/deletecompany", async (req, res) => {
     var [result,decoded] = await secTest(token);
     if (result == true){
       var body = req.body;
+      await Offer.destroy({ where: { companyID: body.id } });
       const company = await Company.destroy({
         where:{
           id: body.id
@@ -866,7 +867,17 @@ app.post("/createoffer", async (req, res) => {
   try{
     var body = req.body;
     const token = req.headers['authorization'];
-    
+
+    const company = await Company.findOne({
+      where: {
+        id: body.companyID
+      }
+    });
+
+    if (company == null || company.dataValues == null || company.dataValues.companyStatus != 1) {
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access, company not verified" });
+    }
+
     try {
         var [result,decoded] = await secTest(token);
         const offer = await Offer.create({
