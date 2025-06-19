@@ -1784,6 +1784,24 @@ app.post("/company-admin/invitemembers", async (req, res) => {
       }
     }
 
+    const user = await User.findOne({
+      where: {
+        email: body.email
+      }
+    });
+    if (user) {
+      const existingAssociation = await UserCompany.findOne({
+        where: {
+          userID: user.id,
+          companyID: body.companyID
+        }
+      });
+
+      if (existingAssociation) {
+        return res.json({ "type": "result", "result": "fail", "message": "Member is already associated with this company" });
+      }
+    }
+
     const invitation = await Invitation.create({
       email: body.email,
       companyID: body.companyID,
