@@ -65,7 +65,8 @@ userlevel:{
 type:{
     1: company location,
     2: offer location,
-    3: logistics terminal
+    3: logistics terminal,
+    4: company map location
 }
 ```
 
