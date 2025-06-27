@@ -307,6 +307,49 @@ router.post('/addlocation', async (req, res) => {
 });
 
 /*
+* @route POST /company/getAllLocations
+* @desc Get all locations for a company
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {array} locations
+*/
+router.post('/getAllLocations', async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+
+  if (!result) {
+    return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+  }
+
+  try {
+    const locations = await Location.findAll({
+      where: {
+        type: 4 
+      }
+    });
+
+    res.json({ type: "result", result: "ok", message: locations });
+    Logs.create({
+      userID: decoded.id,
+      action: req.url,
+      text: "access granted " + req.url + " from ip:" + req.ip,
+      level: 1
+    });
+  } catch (error) {
+    console.error(error);
+    res.json({ type: "result", result: "fail", message: "Unable to get locations" });
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
+  }
+}
+);
+
+/*
  * @route POST /company/getlocations
  * @param {uuid} companyID
  * @return {json} 
@@ -314,7 +357,7 @@ router.post('/addlocation', async (req, res) => {
   * @key result @value ["ok", "fail"]
   * @key message @value if fail {string} error message, if ok {array} locations
  */
-router.post('/getlocations', async (req, res) => {
+router.post('/getlocations/by-company', async (req, res) => {
   const token = req.headers['authorization'];
   var [result,decoded] = await secTest(token);
 
