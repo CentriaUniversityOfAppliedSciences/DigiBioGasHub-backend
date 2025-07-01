@@ -1161,9 +1161,54 @@ app.post("/deleteoffer", async (req, res) => {
 */
 
 app.post("/getoffers", async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  if (result == false) {
+    return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+  }
   try{
+
+    const setting = await Settings.findOne({
+      where: {
+        userID: decoded.id,
+        key: "filter"
+      }
+    });
+
+    let filter = {};
+
+    if (setting) {
+      try {
+        filter = typeof setting.value === 'string' ? JSON.parse(setting.value) : setting.value;
+      } catch (e) {
+        filter = {};
+      }
+    }
+
+    const categoryToIdMap = Object.fromEntries(
+      Object.entries(MATERIAL_TYPE).map(([id, name]) => [name.toLowerCase().replace(/\s+/g, ''), parseInt(id)])
+    );
+
+    console.log("categorytiidmap" , categoryToIdMap);
+
+    const allowedTypeIds = Object.keys(filter)
+    .filter(key => filter[key] === true)
+    .map(key => categoryToIdMap[key.toLowerCase()])
+    .filter(id => id !== undefined);
+
+    console.log("allowedTypeIds", allowedTypeIds);
+
+    const materialWhere = allowedTypeIds.length > 0 ? { type: allowedTypeIds } : {};
+
+    console.log("materialWhere", materialWhere);
+
+    
     const offers = await Offer.findAll({ 
-      include: [Company, Material, Location, Files],
+      include: [Company, Location, Files,
+      {
+        model: Material,
+        where: materialWhere,
+      }],
       attributes: {
         include: [
           [sequelize.col('Material.type'), 'category']
@@ -1431,9 +1476,12 @@ app.post("/updatesettings", async (req, res) => {
     var [result,decoded] = await secTest(token);
     if (result == true){
       var sett = body.settings;
+      console.log("settings", sett);
       if (sett != null && sett != undefined){
         var keys = Object.keys(sett);
+        console.log("keys", keys);
         var values = Object.values(sett);
+        console.log("values", values);
         for (let i = 0; i < keys.length; i++) {
           const key = keys[i];
           const value = values[i];

@@ -21,6 +21,6 @@ export const OFFER_UNITS = {
     4: 'compressed biogas',
     5: 'liquid biogas',
     6: 'feedstock',
-    7: 'digestate / mädätysjäännös'
+    7: 'digestate'
   };
   
