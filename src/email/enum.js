@@ -23,4 +23,3 @@ export const OFFER_UNITS = {
     6: 'feedstock',
     7: 'digestate'
   };
-  

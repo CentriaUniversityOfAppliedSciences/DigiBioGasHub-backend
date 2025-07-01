@@ -1196,12 +1196,7 @@ app.post("/getoffers", async (req, res) => {
     .map(key => categoryToIdMap[key.toLowerCase()])
     .filter(id => id !== undefined);
 
-    console.log("allowedTypeIds", allowedTypeIds);
-
     const materialWhere = allowedTypeIds.length > 0 ? { type: allowedTypeIds } : {};
-
-    console.log("materialWhere", materialWhere);
-
     
     const offers = await Offer.findAll({ 
       include: [Company, Location, Files,
@@ -1476,10 +1471,8 @@ app.post("/updatesettings", async (req, res) => {
     var [result,decoded] = await secTest(token);
     if (result == true){
       var sett = body.settings;
-      console.log("settings", sett);
       if (sett != null && sett != undefined){
         var keys = Object.keys(sett);
-        console.log("keys", keys);
         var values = Object.values(sett);
         console.log("values", values);
         for (let i = 0; i < keys.length; i++) {
