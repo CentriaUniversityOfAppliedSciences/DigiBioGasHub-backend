@@ -1,4 +1,3 @@
-// enums.js
 
 export const OFFER_UNITS = {
     0: 'not available',

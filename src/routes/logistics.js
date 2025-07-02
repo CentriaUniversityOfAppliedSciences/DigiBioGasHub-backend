@@ -15,19 +15,35 @@ const router = express.Router();
  *   @key message @value if fail {string} error message, if ok {array} terminals
  */
 router.post('/getterminals', async (req, res) => {
-    const token = req.headers['authorization'];
-    var [result,decoded] = await secTest(token);
+  const token = req.headers['authorization'];
+  var [result, decoded] = await secTest(token);
 
-    if (!result) {
-        return res.status(401).json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
-    }
+  if (!result) {
+    return res.status(401).json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+  }
 
   try {
-    const terminals = await Logistics.findAll({
+
+    const settings = await Settings.findOne({
       where: {
-        visibility: 1 // Only public terminals
+        userID: decoded.id,
+        key: "map"
       }
     });
+
+    const filterSettings = settings && typeof settings.value === 'string' ? JSON.parse(settings.value): settings?.value || {};
+  
+    const shouldFilter = Object.values(filterSettings).some(value => value === true);
+
+    let terminals = [];
+
+    if (!shouldFilter || filterSettings.terminals) {
+      terminals = await Logistics.findAll({
+        where: {
+          visibility: 1 // Only public terminals
+        }
+      });
+    }
     res.json({ type: "result", result: "ok", message: terminals });
   } catch (error) {
     console.error(error);

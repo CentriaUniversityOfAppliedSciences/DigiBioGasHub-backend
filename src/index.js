@@ -18,7 +18,7 @@ import sendEmail from './email/emailService.js';
 import buyerEmailTemplate from './email/buyerEmailTemplate.js';
 import sellerEmailTemplate from './email/sellerEmailTemplate.js';
 import invitationEmailTemplate from './email/invitationEmailTemplate.js';
-import { OFFER_UNITS, OFFER_CARGOTYPE, MATERIAL_TYPE} from './email/enum.js';
+import { OFFER_UNITS, OFFER_CARGOTYPE, MATERIAL_TYPE} from './constants/constants.js';
 import logisticsRouter from './routes/logistics.js';
 import adminRouter from './routes/admin.js';
 import companyRouter from './routes/company.js';
