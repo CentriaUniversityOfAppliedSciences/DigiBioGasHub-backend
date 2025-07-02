@@ -1232,7 +1232,7 @@ app.post("/getoffers", async (req, res) => {
         offer.dataValues.fileLink = tempLink; // Add the temporary link to the offer
       }
     }
-    res.json({"type":"result","result":"ok", "message":offers});
+    res.json({"type":"result","result":"ok", "message":offers, "filtered": allowedTypeIds.length > 0});
   }
   catch (error) {
     console.error(error);
