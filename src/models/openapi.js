@@ -16,12 +16,31 @@ const Openapi = sequelize.define("Openapi", {
   },
   companyID: {
     type: DataTypes.UUID,
-    allowNull: false,
+    allowNull: true,
   },
   value: {
     type: DataTypes.TEXT,
     allowNull: false,
-  }
+    unique: true
+  },
+  type: {
+    type: DataTypes.ENUM('user', 'company'),
+    allowNull: false,
+    defaultValue: 'user',
+  },
+}, {
+  indexes: [
+    {
+      unique: true,
+      fields: ['userID', 'type'],
+      where: { type: 'user' }
+    },
+    {
+      unique: true,
+      fields: ['companyID'],
+      where: { type: 'company' }
+    }
+  ]
 });
 
 export default Openapi;
