@@ -2,7 +2,7 @@ import { DataTypes } from 'sequelize';
 
 import sequelize from './database.js';
 
-const Openapi = sequelize.define("openapi", {
+const Openapi = sequelize.define("Openapi", {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,

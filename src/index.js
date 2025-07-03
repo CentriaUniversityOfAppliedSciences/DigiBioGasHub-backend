@@ -22,6 +22,7 @@ import { OFFER_UNITS, OFFER_CARGOTYPE, MATERIAL_TYPE} from './constants/constant
 import logisticsRouter from './routes/logistics.js';
 import adminRouter from './routes/admin.js';
 import companyRouter from './routes/company.js';
+import apikeyRouter from './routes/apikey.js';
 import { getCoords, secTest, adminTest } from './functions/utils.js';
 app.use(morgan('combined'));
 app.use(helmet({
@@ -1974,6 +1975,7 @@ app.post("/invitations/accept", async (req, res) => {
 app.use('/logistics', logisticsRouter);
 app.use('/admin', adminRouter);
 app.use('/company', companyRouter);
+app.use ('/apikey', apikeyRouter);
 
 //these must be at the bottom but before listen !!!!
 

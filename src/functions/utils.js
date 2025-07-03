@@ -1,5 +1,6 @@
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 
 /*
@@ -109,4 +110,19 @@ async function adminTest(token){
   }
 }
 
-export { getCoords, secTest, adminTest };
+/*
+* function to generate API key
+*/
+function generateApiKey(length = 60) {
+	const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	const bytes = crypto.randomBytes(length);
+	let key = '';
+  
+	for (let i = 0; i < length; i++) {
+	  key += chars[bytes[i] % chars.length];
+	}
+  
+	return 'digibio_' + key;
+  }
+
+export { getCoords, secTest, adminTest, generateApiKey };
