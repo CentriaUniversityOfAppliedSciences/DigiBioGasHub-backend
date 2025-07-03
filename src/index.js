@@ -31,7 +31,7 @@ app.disable('x-powered-by');
 import sequelize from './models/database.js';
 import { Op } from 'sequelize';
 import minioconnector from './minioconnector.js';
-import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics } from './models/index.js';
+import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Openapi } from './models/index.js';
 
 sequelize.sync({ alter: false }).then(()=>{ // change alter:true if you want to update the database schema, fill in missing values in db manually, not for production
   //console.log("created");

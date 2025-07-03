@@ -14,6 +14,7 @@ import Files from './files.js';
 import Subscription from './subscription.js';
 import Settings from './settings.js';
 import Logistics from './logistics.js';
+import Openapi from './openapi.js';
 
 Company.belongsToMany(User, { through: UserCompany, foreignKey: 'companyID' });
 User.belongsToMany(Company, { through: UserCompany, foreignKey: 'userID' });
@@ -39,4 +40,4 @@ Logistics.belongsTo(Company, { foreignKey: 'companyID' });
 Subscription.belongsTo(User, { foreignKey: 'userID' });
 User.hasMany(BlogPost, { foreignKey: 'userID' });
 
-export { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics };
+export { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Openapi };
