@@ -1,9 +1,9 @@
 import express from 'express';
-import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics} from '../models/index.js';
+import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Certificates, CompanyCertificates} from '../models/index.js';
 import jwt from 'jsonwebtoken';
 import { adminTest } from '../functions/utils.js'; 
 const router = express.Router();
-
+import minioconnector from '../minioconnector.js';
 
 
 /* update user with admin rights */
@@ -214,7 +214,6 @@ router.post("/getallcompanies", async (req, res) => {
   * @key message @value if fail {string} error message, if ok {json} company
 */
 router.post("/deletecompany", async (req, res) => {
-  console.log("request body:", req.body);
   adminTest(req.headers['authorization']).then(async (result) => {
     if (result[0]) {
       try {
@@ -580,6 +579,140 @@ router.post("/updateblogpost", async (req, res) => {
       } catch (error) {
         console.error(error);
         res.status(500).json({"type":"result","result":"fail","message": "unable to update blog post"});
+      }
+    }
+    else{
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
+
+/*
+* @route POST /admin/getcertificates
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} certificates
+*/
+router.post("/getcertificates", async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        const certificates = await Certificates.findAll({});
+        const client = await minioconnector.createConnection();
+        
+            // Add temporary file links to each certificate
+        for (const certificate of certificates) {
+          if (certificate.dataValues.file != null) {
+            const filePath = certificate.dataValues.file; 
+            const [folder, filename] = filePath.split('/'); // Split into folder and filename
+            const tempLink = await minioconnector.getLink(client, folder, filename);
+            certificate.dataValues.fileLink = tempLink; // Add the temporary link to the offer
+          }
+        }
+        res.json({ "type": "result", "result": "ok", "message": certificates });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get certificates" });
+      }
+    }
+    else{
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
+
+/*
+* @route POST /admin/getcompanycertificates
+* @param {uuid} companyID (optional - if not provided, all company certificates will be returned)
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} company certificates
+*/
+router.post("/getcompanycertificates", async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        
+        const companyCertificates = await CompanyCertificates.findAll({
+          include:[Company]
+        });
+        for (const certificate of companyCertificates) {
+          if (certificate.dataValues.file != null) {
+            const filePath = certificate.dataValues.file; 
+            const [folder, filename] = filePath.split('/'); // Split into folder and filename
+            const tempLink = await minioconnector.getLink(client, folder, filename);
+            certificate.dataValues.fileLink = tempLink; // Add the temporary link to the offer
+          }
+        }
+        res.json({ "type": "result", "result": "ok", "message": companyCertificates });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get company certificates" });
+      }
+    }
+    else{
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
+
+/*
+* @route POST /admin/addcertificate
+* @param {string} type
+* @param {string} name
+* @param {string} file
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} certificate
+*/
+router.post("/addcertificate", async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) { 
+      try {
+        var body = req.body;
+        
+        const certificate = await Certificates.create({
+          type: body.type,
+          name: body.name,
+          description: body.description
+        });
+        if (body.file64 !=null && body.file64 != undefined && body.file64 != ""){
+          const client = await minioconnector.createConnection();
+          try{
+            const dataUrl = body.file64;
+            const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+            if (!matches || matches.length !== 3) {
+              throw new Error("Invalid data URL format");
+            }
+            const mimeType = matches[1]; // Extract MIME type
+            const base64Data = matches[2]; // Extract base64 data
+            const buffer = Buffer.from(base64Data, 'base64'); // Convert base64 to buffer
+            const folder = 'certificates'; // Define the bucket/folder name
+            const filename = `${certificate.id}`; // Generate a unique filename
+            
+            // Upload the file to MinIO
+            await minioconnector.insert(client, buffer, filename, folder);
+            await Certificates.update({
+              file: `${folder}/${filename}`
+            }, {
+              where: {
+                id: certificate.id
+              }
+            });
+          }
+          catch (error) {
+            console.error("Error uploading file to MinIO:", error);
+          }
+          
+
+        }
+        res.json({ "type": "result", "result": "ok", "message": certificate });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to create certificate" });
       }
     }
     else{
