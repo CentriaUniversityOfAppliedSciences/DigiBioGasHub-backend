@@ -17,10 +17,11 @@ import sendEmail from './email/emailService.js';
 import buyerEmailTemplate from './email/buyerEmailTemplate.js';
 import sellerEmailTemplate from './email/sellerEmailTemplate.js';
 import invitationEmailTemplate from './email/invitationEmailTemplate.js';
-import { OFFER_UNITS, OFFER_CARGOTYPE, MATERIAL_TYPE} from './email/enum.js';
+import { OFFER_UNITS, OFFER_CARGOTYPE, MATERIAL_TYPE} from './constants/constants.js';
 import logisticsRouter from './routes/logistics.js';
 import adminRouter from './routes/admin.js';
 import companyRouter from './routes/company.js';
+import apikeyRouter from './routes/apikey.js';
 import { getCoords, secTest, adminTest } from './functions/utils.js';
 app.use(morgan('combined'));
 app.use(helmet({
@@ -30,7 +31,7 @@ app.disable('x-powered-by');
 import sequelize from './models/database.js';
 import { Op } from 'sequelize';
 import minioconnector from './minioconnector.js';
-import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics } from './models/index.js';
+import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Openapi } from './models/index.js';
 
 sequelize.sync({ alter: false }).then(()=>{ // change alter:true if you want to update the database schema, fill in missing values in db manually, not for production
   //console.log("created");
@@ -1167,9 +1168,49 @@ app.post("/deleteoffer", async (req, res) => {
 */
 
 app.post("/getoffers", async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  if (result == false) {
+    return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+  }
   try{
+
+    const setting = await Settings.findOne({
+      where: {
+        userID: decoded.id,
+        key: "filter"
+      }
+    });
+
+    let filter = {};
+
+    if (setting) {
+      try {
+        filter = typeof setting.value === 'string' ? JSON.parse(setting.value) : setting.value;
+      } catch (e) {
+        filter = {};
+      }
+    }
+
+    const categoryToIdMap = Object.fromEntries(
+      Object.entries(MATERIAL_TYPE).map(([id, name]) => [name.toLowerCase().replace(/\s+/g, ''), parseInt(id)])
+    );
+
+    console.log("categorytiidmap" , categoryToIdMap);
+
+    const allowedTypeIds = Object.keys(filter)
+    .filter(key => filter[key] === true)
+    .map(key => categoryToIdMap[key.toLowerCase()])
+    .filter(id => id !== undefined);
+
+    const materialWhere = allowedTypeIds.length > 0 ? { type: allowedTypeIds } : {};
+    
     const offers = await Offer.findAll({ 
-      include: [Company, Material, Location, Files],
+      include: [Company, Location, Files,
+      {
+        model: Material,
+        where: materialWhere,
+      }],
       attributes: {
         include: [
           [sequelize.col('Material.type'), 'category']
@@ -1198,7 +1239,7 @@ app.post("/getoffers", async (req, res) => {
         offer.dataValues.fileLink = tempLink; // Add the temporary link to the offer
       }
     }
-    res.json({"type":"result","result":"ok", "message":offers});
+    res.json({"type":"result","result":"ok", "message":offers, "filtered": allowedTypeIds.length > 0});
   }
   catch (error) {
     console.error(error);
@@ -1440,6 +1481,7 @@ app.post("/updatesettings", async (req, res) => {
       if (sett != null && sett != undefined){
         var keys = Object.keys(sett);
         var values = Object.values(sett);
+        console.log("values", values);
         for (let i = 0; i < keys.length; i++) {
           const key = keys[i];
           const value = values[i];
@@ -1939,6 +1981,7 @@ app.post("/invitations/accept", async (req, res) => {
 app.use('/logistics', logisticsRouter);
 app.use('/admin', adminRouter);
 app.use('/company', companyRouter);
+app.use ('/apikey', apikeyRouter);
 
 //these must be at the bottom but before listen !!!!
 

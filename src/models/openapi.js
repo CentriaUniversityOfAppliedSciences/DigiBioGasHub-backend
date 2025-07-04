@@ -1,6 +1,6 @@
 import { DataTypes } from 'sequelize';
 
-import  sequelize  from './database.js';
+import sequelize from './database.js';
 
 const Openapi = sequelize.define("Openapi", {
   id: {
@@ -14,14 +14,28 @@ const Openapi = sequelize.define("Openapi", {
     type: DataTypes.UUID,
     allowNull: false,
   },
-  companyID:{
+  companyID: {
     type: DataTypes.UUID,
-    allowNull: false,
+    allowNull: true,
   },
   value: {
     type: DataTypes.TEXT,
     allowNull: false,
-  }
+    unique: true
+  },
+  type: {
+    type: DataTypes.ENUM('user', 'company'),
+    allowNull: false,
+    defaultValue: 'user',
+  },
+}, {
+  indexes: [
+    {
+      unique: true,
+      fields: ['userID', 'type'],
+      where: { type: 'user' }
+    }
+  ]
 });
 
 export default Openapi;

@@ -1,4 +1,3 @@
-// enums.js
 
 export const OFFER_UNITS = {
     0: 'not available',
@@ -21,6 +20,5 @@ export const OFFER_UNITS = {
     4: 'compressed biogas',
     5: 'liquid biogas',
     6: 'feedstock',
-    7: 'digestate / mädätysjäännös'
+    7: 'digestate'
   };
-  

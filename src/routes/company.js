@@ -316,18 +316,34 @@ router.post('/addlocation', async (req, res) => {
 */
 router.post('/getAllLocations', async (req, res) => {
   const token = req.headers['authorization'];
-  var [result,decoded] = await secTest(token);
+  var [result, decoded] = await secTest(token);
 
   if (!result) {
     return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
   }
 
   try {
-    const locations = await Location.findAll({
+
+    const settings = await Settings.findOne({
       where: {
-        type: 4 
+        userID: decoded.id,
+        key: "map"
       }
     });
+
+    const filterSettings = settings && typeof settings.value === 'string' ? JSON.parse(settings.value) : settings?.value || {};
+
+    const shouldFilter = Object.values(filterSettings).some(value => value === true);
+
+    let locations = [];
+
+    if (!shouldFilter || filterSettings.company) {
+      locations = await Location.findAll({
+        where: {
+          type: 4
+        }
+      });
+    }
 
     res.json({ type: "result", result: "ok", message: locations });
     Logs.create({
