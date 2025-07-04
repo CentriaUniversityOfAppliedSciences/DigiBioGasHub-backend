@@ -1,5 +1,5 @@
 import express from 'express';
-import { UserCompany, Openapi, User } from '../models/index.js';
+import { UserCompany, Openapi, User, Company } from '../models/index.js';
 import { secTest, generateApiKey } from '../functions/utils.js';
 
 const router = express.Router();
@@ -28,22 +28,22 @@ router.post('/user/generate', async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        let existing = await Openapi.findOne({ where: { userID, type:'user' } });
+        let existing = await Openapi.findOne({ where: { userID, type: 'user' } });
 
         if (existing) {
-            return res.json({ "type":"result", "result":"ok", "apikey": existing.value });
+            return res.json({ "type": "result", "result": "ok", "apikey": existing.value });
         }
 
         const value = generateApiKey();
 
         const newKey = await Openapi.create({
             userID,
-            companyID:null,
+            companyID: null,
             value,
-            type:'user'
+            type: 'user'
         });
 
-        return res.status(201).json({ "type":"result", "result":"ok","apikey": newKey.value });
+        return res.status(201).json({ "type": "result", "result": "ok", "apikey": newKey.value });
     } catch (error) {
         console.error(error);
         res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to generate API key" });
@@ -62,7 +62,7 @@ router.post('/user/generate', async (req, res) => {
 router.post('/company/generate', async (req, res) => {
 
     var token = req.headers['authorization'];
-    var [result,decoded] = await secTest(token);
+    var [result, decoded] = await secTest(token);
     if (!result) {
         return res.status(403).json({ "error": 'Unauthorized' });
     }
@@ -79,18 +79,18 @@ router.post('/company/generate', async (req, res) => {
         if (!userCompany) {
             return res.status(403).json({ "error": 'Unauthorized user or invalid company' });
         }
-        let existing = await Openapi.findOne({ where: { companyID, type:'company' } });
+        let existing = await Openapi.findOne({ where: { companyID, type: 'company' } });
         if (existing) {
-            return res.json({ "type":"result", "result":"ok", "apikey": existing.value });
+            return res.json({ "type": "result", "result": "ok", "apikey": existing.value });
         }
         const value = generateApiKey();
         const newKey = await Openapi.create({
             userID,
             companyID,
             value,
-            type:'company'
+            type: 'company'
         });
-        return res.status(201).json({ "type":"result", "result":"ok","apikey": newKey.value });
+        return res.status(201).json({ "type": "result", "result": "ok", "apikey": newKey.value });
     } catch (error) {
         console.error(error);
         res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to generate API key" });
@@ -116,13 +116,13 @@ router.get('/user', async (req, res) => {
 
     try {
         const userID = decoded.id;
-        const existing = await Openapi.findOne({ where: { userID, type:'user' } });
+        const existing = await Openapi.findOne({ where: { userID, type: 'user' } });
 
         if (!existing) {
             return res.status(404).json({ "message": 'API key not found for user' });
         }
 
-        return res.json({ "type":"result", "result":"ok", "apikey": existing.value });
+        return res.json({ "type": "result", "result": "ok", "apikey": existing.value });
     } catch (error) {
         console.error(error);
         res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to retrieve API key" });
@@ -145,30 +145,34 @@ router.get('/company', async (req, res) => {
     if (!result) {
         return res.status(403).json({ "error": 'Unauthorized' });
     }
-
-    const { companyID } = req.query;
-
-    if (!companyID) {
-        return res.status(400).json({ error: 'Missing companyID' });
-    }
     try {
         const userID = decoded.id;
-
-        const userCompany = await UserCompany.findOne({
-            where: { userID, companyID }
+        const userCompanies = await UserCompany.findAll({
+            where: { userID },
+            include: [{ model: UserCompany.sequelize.models.Company, attributes: ['id', 'name'] }]
         });
 
-        if (!userCompany) {
-            return res.status(403).json({ "error": 'Unauthorized user or invalid company' });
+        if (!userCompanies || userCompanies.length === 0) {
+            return res.status(404).json({ "message": 'No companies associated with user' });
         }
 
-        const existing = await Openapi.findOne({ where: { companyID, type:'company' } });
+        const companiesWithKeys = (
+            await Promise.all(userCompanies.map(async (uc) => {
+                const companyID = uc.companyID;
+                const companyName = uc.Company ? uc.Company.name : null;
+                const existing = await Openapi.findOne({ where: { companyID, type: 'company' } });
+                if (existing) {
+                    return {
+                        companyID,
+                        companyName,
+                        apikey: existing.value
+                    };
+                }
+                return null;
+            }))
+        ).filter(Boolean);
 
-        if (!existing) {
-            return res.status(404).json({ "message": 'API key not found for company' });
-        }
-
-        return res.json({ "type":"result", "result":"ok", "apikey": existing.value });
+        return res.json({ "type": "result", "result": "ok", "companies": companiesWithKeys });
     } catch (error) {
         console.error(error);
         res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to retrieve API key" });

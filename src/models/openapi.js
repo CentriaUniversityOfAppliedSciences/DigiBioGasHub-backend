@@ -34,11 +34,6 @@ const Openapi = sequelize.define("Openapi", {
       unique: true,
       fields: ['userID', 'type'],
       where: { type: 'user' }
-    },
-    {
-      unique: true,
-      fields: ['companyID'],
-      where: { type: 'company' }
     }
   ]
 });
