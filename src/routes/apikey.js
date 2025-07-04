@@ -1,5 +1,5 @@
 import express from 'express';
-import { UserCompany, Openapi, User, Company } from '../models/index.js';
+import { UserCompany, Openapi, User, Logs } from '../models/index.js';
 import { secTest, generateApiKey } from '../functions/utils.js';
 
 const router = express.Router();
@@ -43,10 +43,22 @@ router.post('/user/generate', async (req, res) => {
             type: 'user'
         });
 
-        return res.status(201).json({ "type": "result", "result": "ok", "apikey": newKey.value });
+        res.status(201).json({ "type": "result", "result": "ok", "apikey": newKey.value });
+        Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access granted (user key generated) " + req.url + " from ip:" + req.ip,
+            level: 1
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to generate API key" });
+        Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access denied " + req.url + " from ip:" + req.ip + " error: " + error.message,
+            level: 2
+        });
     }
 });
 
@@ -90,10 +102,22 @@ router.post('/company/generate', async (req, res) => {
             value,
             type: 'company'
         });
-        return res.status(201).json({ "type": "result", "result": "ok", "apikey": newKey.value });
+        res.status(201).json({ "type": "result", "result": "ok", "apikey": newKey.value });
+        Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access granted (company key generated) " + req.url + " from ip:" + req.ip,
+            level: 1
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to generate API key" });
+        Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access denied " + req.url + " from ip:" + req.ip + " error: " + error.message,
+            level: 2
+        });
     }
 });
 
