@@ -142,11 +142,7 @@ router.get('/user', async (req, res) => {
         const userID = decoded.id;
         const existing = await Openapi.findOne({ where: { userID, type: 'user' } });
 
-        if (!existing) {
-            return res.status(404).json({ "message": 'API key not found for user' });
-        }
-
-        return res.json({ "type": "result", "result": "ok", "apikey": existing.value });
+        return res.json({ "type": "result", "result": "ok", "apikey": existing ? existing.value : "" });
     } catch (error) {
         console.error(error);
         res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to retrieve API key" });
@@ -273,7 +269,7 @@ router.put('/company/update', async (req, res) => {
     if (!companyID) {
         return res.status(400).json({ error: 'Missing companyID' });
     }
-    
+
     try {
         const userID = decoded.id;
 
