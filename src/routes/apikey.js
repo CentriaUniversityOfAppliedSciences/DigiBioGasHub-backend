@@ -203,5 +203,221 @@ router.get('/company', async (req, res) => {
     }
 });
 
+/**
+ * @route UPDATE /apikey/user/update
+ * @desc Update API key for user
+ * @return {json}
+ *   @key type @value result
+ *   @key result @value ["ok", "fail"]
+ *   @key message @value if fail {string} error message, if ok {string} success message
+ */
+router.put('/user/update', async (req, res) => {
+    var token = req.headers['authorization'];
+    var [result, decoded] = await secTest(token);
+
+    if (!result) {
+        return res.status(403).json({ "error": 'Unauthorized' });
+    }
+
+    try {
+        const userID = decoded.id;
+
+        const existing = await Openapi.findOne({ where: { userID, type: 'user' } });
+
+        if (!existing) {
+            return res.status(404).json({ "message": 'API key not found for user' });
+        }
+
+        const newValue = generateApiKey();
+        existing.value = newValue;
+
+        await existing.save();
+
+        res.json({ "type": "result", "result": "ok", "message": "API key updated successfully", "apikey": newValue });
+        Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access granted (user key updated) " + req.url + " from ip:" + req.ip,
+            level: 1
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to update API key" });
+        Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access denied " + req.url + " from ip:" + req.ip + " error: " + error.message,
+            level: 2
+        });
+    }
+});
+
+/**
+ * @route UPDATE /apikey/company/update
+ * @desc Update API key for company
+ * @return {json}
+ *   @key type @value result
+ *   @key result @value ["ok", "fail"]
+ *   @key message @value if fail {string} error message, if ok {string} success message
+ */
+router.put('/company/update', async (req, res) => {
+    var token = req.headers['authorization'];
+    var [result, decoded] = await secTest(token);
+
+    if (!result) {
+        return res.status(403).json({ "error": 'Unauthorized' });
+    }
+
+    const { companyID } = req.body;
+
+    if (!companyID) {
+        return res.status(400).json({ error: 'Missing companyID' });
+    }
+    
+    try {
+        const userID = decoded.id;
+
+        const userCompany = await UserCompany.findOne({
+            where: { userID, companyID }
+        });
+
+        if (!userCompany) {
+            return res.status(403).json({ "error": 'Unauthorized user or invalid company' });
+        }
+
+        const existing = await Openapi.findOne({ where: { companyID, type: 'company' } });
+
+        if (!existing) {
+            return res.status(404).json({ "message": 'API key not found for company' });
+        }
+
+        const newValue = generateApiKey();
+        existing.value = newValue;
+
+        await existing.save();
+
+        res.json({ "type": "result", "result": "ok", "message": "API key updated successfully", "apikey": newValue });
+        Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access granted (company key updated) " + req.url + " from ip:" + req.ip,
+            level: 1
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to update API key" });
+        Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access denied " + req.url + " from ip:" + req.ip + " error: " + error.message,
+            level: 2
+        });
+    }
+});
+
+/**
+ * @route DELETE /apikey/user/delete
+ * @desc Delete API key for user
+ * @return {json}
+ *   @key type @value result
+ *   @key result @value ["ok", "fail"]
+ *   @key message @value if fail {string} error message, if ok {string} success message
+ */
+router.delete('/user/delete', async (req, res) => {
+    var token = req.headers['authorization'];
+    var [result, decoded] = await secTest(token);
+
+    if (!result) {
+        return res.status(403).json({ "error": 'Unauthorized' });
+    }
+    try {
+        const userID = decoded.id;
+
+        const existing = await Openapi.findOne({ where: { userID, type: 'user' } });
+
+        if (!existing) {
+            return res.status(404).json({ "message": 'API key not found for user' });
+        }
+
+        await existing.destroy();
+
+        res.json({ "type": "result", "result": "ok", "message": "API key deleted successfully" });
+        Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access granted (user key deleted) " + req.url + " from ip:" + req.ip,
+            level: 1
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to delete API key" });
+        Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access denied " + req.url + " from ip:" + req.ip + " error: " + error.message,
+            level: 2
+        });
+    }
+});
+
+/**
+ * @route DELETE /apikey/company/delete
+ * @desc Delete API key for company
+ * @return {json}
+ *   @key type @value result
+ *   @key result @value ["ok", "fail"]
+ *   @key message @value if fail {string} error message, if ok {string} success message
+ */
+router.delete('/company/delete', async (req, res) => {
+    var token = req.headers['authorization'];
+    var [result, decoded] = await secTest(token);
+
+    if (!result) {
+        return res.status(403).json({ "error": 'Unauthorized' });
+    }
+
+    const { companyID } = req.body;
+
+    if (!companyID) {
+        return res.status(400).json({ error: 'Missing companyID' });
+    }
+    try {
+        const userID = decoded.id;
+
+        const userCompany = await UserCompany.findOne({
+            where: { userID, companyID }
+        });
+
+        if (!userCompany) {
+            return res.status(403).json({ "error": 'Unauthorized user or invalid company' });
+        }
+
+        const existing = await Openapi.findOne({ where: { companyID, type: 'company' } });
+
+        if (!existing) {
+            return res.status(404).json({ "message": 'API key not found for company' });
+        }
+
+        await existing.destroy();
+
+        res.json({ "type": "result", "result": "ok", "message": "API key deleted successfully" });
+        Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access granted (company key deleted) " + req.url + " from ip:" + req.ip,
+            level: 1
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to delete API key" });
+        Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access denied " + req.url + " from ip:" + req.ip + " error: " + error.message,
+            level: 2
+        });
+    }
+});
+
 
 export default router;
