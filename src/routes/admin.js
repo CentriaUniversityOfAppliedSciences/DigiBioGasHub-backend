@@ -603,10 +603,25 @@ router.post('/giftsubscription', async (req, res) => {
   adminTest(req.headers['authorization']).then(async (result) => {
     if (result[0]) {
       try {
-        const { userID, subscriptionDate, expirationDate } = req.body;
+        let { userID, subscriptionDate, expirationDate } = req.body;
 
         if (!userID || !subscriptionDate || !expirationDate) {
           return res.status(400).json({ type: "result", result: "fail", message: "Missing required fields" });
+        }
+  
+        subscriptionDate = new Date(subscriptionDate);
+        expirationDate = new Date(expirationDate);
+
+        const latestSub = await Subscription.findOne({
+          where: { userID },
+          order: [['expirationDate', 'DESC']]
+        });
+
+        if (latestSub && new Date(latestSub.expirationDate) > subscriptionDate) {
+
+          const durationMs = expirationDate - subscriptionDate;
+          subscriptionDate = new Date(latestSub.expirationDate);
+          expirationDate = new Date(subscriptionDate.getTime() + durationMs);
         }
 
         const subscription = await Subscription.create({
