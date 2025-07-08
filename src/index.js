@@ -1,4 +1,3 @@
-
 /* 
 * importing nodejs modules and starting express server
 * uses morgan and helmet for logging and security
@@ -75,8 +74,15 @@ var corsOptionsDelegate = async function (req,callback) {
   //}
 }
 app.use(cors(corsOptionsDelegate));
-app.use(express.json({limit: '50mb' }));
-app.use(bodyParser.json({limit: '50mb' }));
+//app.use(express.bodyParser({limit: '1500mb' }));
+//app.use(express.json({limit: '200mb' }));
+//app.use(express.urlencoded({limit: '200mb', extended: true }));
+app.use(bodyParser.json({limit: '200mb'}));
+// For multipart/form-data (file uploads), use multer. Example:
+// const multer = require('multer');
+// const upload = multer({ limits: { fileSize: 1500 * 1024 * 1024 } });
+// app.post('/upload', upload.single('file'), (req, res) => { ... });
+
 
 /*
 *  checking jwt token, if token is not present or invalid, returns 401

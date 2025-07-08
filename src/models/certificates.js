@@ -2,7 +2,7 @@ import { DataTypes } from 'sequelize';
 
 import  sequelize  from './database.js';
 
-const Certificates = sequelize.define("certificates", {
+const Certificates = sequelize.define("Certificates", {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
@@ -10,17 +10,21 @@ const Certificates = sequelize.define("certificates", {
     allowNull: false,
     unique: true,
   },
-  companyID:{
-    type: DataTypes.UUID,
-    allowNull: false,
-  },
-  key:{
+  type: {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  value: {
-    type: DataTypes.JSON,
+  name:{
+    type: DataTypes.STRING,
     allowNull: false,
+  },
+  description: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  file: {
+    type: DataTypes.TEXT,
+    allowNull: true,
   }
 });
 

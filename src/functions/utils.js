@@ -1,7 +1,7 @@
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-
+import { User, Company, UserCompany } from '../models/index.js';
 
 /*
 * function to get coordinates from address, zipcode and city
@@ -111,6 +111,39 @@ async function adminTest(token){
 }
 
 /*
+* function checks if user has access to the company
+* @param {string} token - jwt token
+* @param {string} companyID - company id
+* @returns {boolean} - true if user has access to the company, false otherwise
+*/
+
+async function userCompanyTest(token, companyID){
+  try{
+	const decoded = jwt.verify(token, process.env.JWT_KEY);
+	if (decoded.userlevel == 99){
+	  return true;
+	}
+	else{
+		var userComp = await UserCompany.findOne({
+			where: {
+				userID: decoded.id,
+				companyID: companyID
+			}
+		});
+		if (userComp){
+			return true;
+		}
+		else{
+			return false;
+		}
+	}
+  }
+  catch(error){
+	return false;
+  }
+}
+
+/*
 * function to generate API key
 */
 function generateApiKey(length = 60) {
@@ -125,4 +158,4 @@ function generateApiKey(length = 60) {
 	return 'digibio_' + key;
   }
 
-export { getCoords, secTest, adminTest, generateApiKey };
+export { getCoords, secTest, adminTest, generateApiKey, userCompanyTest };

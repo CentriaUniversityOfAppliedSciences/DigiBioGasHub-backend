@@ -15,6 +15,8 @@ import Subscription from './subscription.js';
 import Settings from './settings.js';
 import Logistics from './logistics.js';
 import Openapi from './openapi.js';
+import Certificates from './certificates.js';
+import CompanyCertificates from './companycertificates.js';
 
 Company.belongsToMany(User, { through: UserCompany, foreignKey: 'companyID' });
 User.belongsToMany(Company, { through: UserCompany, foreignKey: 'userID' });
@@ -33,14 +35,16 @@ Settings.belongsTo(User, { foreignKey: 'userID' });
 Offer.hasMany(Contract, {foreignKey:"offerID"});
 Offer.hasMany(Files, { foreignKey: 'parent' });
 Offer.hasMany(Location, { foreignKey: 'parent' });
-
+Openapi.belongsTo(User, { foreignKey: 'userID' });
+Openapi.belongsTo(Company, { foreignKey: 'companyID' });
 Company.hasMany(Logistics, { foreignKey: 'companyID' });
 Logistics.belongsTo(Company, { foreignKey: 'companyID' });
-
+CompanyCertificates.belongsTo(Company, { foreignKey: 'companyID' });
+Company.hasMany(CompanyCertificates, { foreignKey: 'companyID' });
 Subscription.belongsTo(User, { foreignKey: 'userID' });
 User.hasMany(BlogPost, { foreignKey: 'userID' });
 
 User.hasMany(Subscription, { foreignKey: 'userID' });
 Subscription.belongsTo(User, { foreignKey: 'userID' });
 
-export { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Openapi };
+export { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Openapi, Certificates, CompanyCertificates };

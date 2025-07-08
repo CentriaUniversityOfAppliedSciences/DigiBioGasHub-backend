@@ -1,8 +1,8 @@
 import express from 'express';
-import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics } from '../models/index.js';
-import jwt from 'jsonwebtoken';
-import { getCoords, secTest } from '../functions/utils.js'; 
+import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, CompanyCertificates, Certificates } from '../models/index.js';
 
+import { getCoords, secTest, userCompanyTest } from '../functions/utils.js'; 
+import minioconnector from '../minioconnector.js';
 
 const router = express.Router();
 
@@ -19,20 +19,50 @@ router.post('/getterminals', async (req, res) => {
     var [result,decoded] = await secTest(token);
 
     if (!result) {
-        return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
     }
-
-  try {
-    const terminals = await Logistics.findAll({
-      where:{
-        companyID: req.body.companyID,
+    var test = await userCompanyTest(token, req.body.companyID);
+    if (test === true){
+      try {
+        const terminals = await Logistics.findAll({
+          where:{
+            companyID: req.body.companyID,
+          }
+        });
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "access granted " + req.url + " from ip:" + req.ip,
+          level: 1
+        });
+        res.json({ type: "result", result: "ok", message: terminals });
+      } catch (error) {
+        console.error(error);
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "access not granted " + req.url + " from ip:" + req.ip,
+          level: 2
+        });
+        res.json({ type: "result", result: "fail", message: "Unable to get terminals" });
       }
-    });
-    res.json({ type: "result", result: "ok", message: terminals });
-  } catch (error) {
-    console.error(error);
-    res.json({ type: "result", result: "fail", message: "Unable to get terminals" });
-  }
+    }
+    else{
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+    }
+  
 });
 
 /**
@@ -49,26 +79,62 @@ router.post('/deleteterminal', async (req, res) => {
     var [result,decoded] = await secTest(token);
 
     if (!result) {
-        return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
     }
+    var test = await userCompanyTest(token, req.body.companyID);
+    if (test === true){
+      try {
+        const terminal = await Logistics.destroy({
+          where: {
+            id: req.body.terminalID,
+            companyID: req.body.companyID,
+          }
+        });
 
-  try {
-    const terminal = await Logistics.destroy({
-      where: {
-        id: req.body.terminalID,
-        companyID: req.body.companyID,
+        if (terminal) {
+          Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access granted " + req.url + " from ip:" + req.ip,
+            level: 1
+          });
+          res.json({ type: "result", result: "ok", message: "Terminal deleted successfully" });
+        } else {
+          Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access not granted " + req.url + " from ip:" + req.ip,
+            level: 2
+          });
+          res.json({ type: "result", result: "fail", message: "Terminal not found or unauthorized" });
+        }
+      } catch (error) {
+        console.error(error);
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "access not granted " + req.url + " from ip:" + req.ip,
+          level: 2
+        });
+        res.json({ type: "result", result: "fail", message: "Unable to delete terminal" });
       }
-    });
-
-    if (terminal) {
-      res.json({ type: "result", result: "ok", message: "Terminal deleted successfully" });
-    } else {
-      res.json({ type: "result", result: "fail", message: "Terminal not found or unauthorized" });
     }
-  } catch (error) {
-    console.error(error);
-    res.json({ type: "result", result: "fail", message: "Unable to delete terminal" });
-  }
+    else{
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+    }
+    
 });
 
 
@@ -88,26 +154,62 @@ router.post('/removeuser', async (req, res) => {
     var [result,decoded] = await secTest(token);
 
     if (!result) {
-        return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
     }
+    var test = await userCompanyTest(token, req.body.companyID);
+    if (test === true){
+      try {
+        const userCompany = await UserCompany.destroy({
+          where: {
+            userID: req.body.userID,
+            companyID: req.body.companyID,
+          }
+        });
 
-  try {
-    const userCompany = await UserCompany.destroy({
-      where: {
-        userID: req.body.userID,
-        companyID: req.body.companyID,
+        if (userCompany) {
+          Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access granted " + req.url + " from ip:" + req.ip,
+            level: 1
+          });
+          res.json({ type: "result", result: "ok", message: "User removed successfully" });
+        } else {
+          Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "access not granted " + req.url + " from ip:" + req.ip,
+            level: 2
+          });
+          res.json({ type: "result", result: "fail", message: "User not found or unauthorized" });
+        }
+      } catch (error) {
+        console.error(error);
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "access not granted " + req.url + " from ip:" + req.ip,
+          level: 2
+        });
+        res.json({ type: "result", result: "fail", message: "Unable to remove user" });
       }
-    });
-
-    if (userCompany) {
-      res.json({ type: "result", result: "ok", message: "User removed successfully" });
-    } else {
-      res.json({ type: "result", result: "fail", message: "User not found or unauthorized" });
     }
-  } catch (error) {
-    console.error(error);
-    res.json({ type: "result", result: "fail", message: "Unable to remove user" });
-  }
+    else{
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+    }
+  
 }
 );  
 
@@ -127,34 +229,58 @@ router.post("/getusers", async (req, res) => {
   var [result,decoded] = await secTest(token);
   try{
     if (result == true){
-      var body = req.body;
-      const users = await UserCompany.findAll({
-        where: { companyID: body.id },
-        include: [
-          {
-            model: User,
-            attributes: { exclude: ['password'] }
-          }
-        ]
-      });
-      res.json({ "type": "result", "result": "ok", "message": users });
+      var test = await userCompanyTest(token, req.body.id);
+      if (test === true){
+        var body = req.body;
+        const users = await UserCompany.findAll({
+          where: { companyID: body.id },
+          include: [
+            {
+              model: User,
+              attributes: { exclude: ['password'] }
+            }
+          ]
+        });
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "access granted " + req.url + " from ip:" + req.ip,
+          level: 1
+        });
+        res.json({ "type": "result", "result": "ok", "message": users });
+        
+      }
+      else{
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "access not granted " + req.url + " from ip:" + req.ip,
+          level: 2
+        });
+        return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+      }
+      
+    }
+    else{
       Logs.create({
-        userID: decoded.id,
+        userID: null,
         action: req.url,
-        text: "access granted " + req.url + " from ip:" + req.ip,
-        level: 1
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
       });
+      res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+      
     }
   }
   catch (error) {
     console.error(error);
-    res.status(500).json({"type":"result","result":"fail","message": "cannot get company users"});
     Logs.create({
       userID: null,
       action: req.url,
       text: "access not granted " + req.url + " from ip:" + req.ip,
       level: 2
     });
+    res.status(500).json({"type":"result","result":"fail","message": "cannot get company users"});
   }
 });
 
@@ -175,36 +301,55 @@ router.post("/edituser", async (req, res) => {
   var [result,decoded] = await secTest(token);
 
   if (!result) {
-    return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
-  }
-
-  try {
-    const { userID, userlevel, companyID } = req.body;
-    const userCompany = await UserCompany.findOne({
-      where: { userID, companyID }
-    });
-    if (!userCompany) {
-      return res.json({ "type": "result", "result": "fail", "message": "User not found in company" });
-    }
-    userCompany.userlevel = userlevel;
-    await userCompany.save();
-    res.json({ "type": "result", "result": "ok", "message": "User updated successfully" });
-    Logs.create({
-      userID: decoded.id,
-      action: req.url,
-      text: "access granted " + req.url + " from ip:" + req.ip,
-      level: 1
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ "type": "result", "result": "fail", "message": "Error updating user" });
     Logs.create({
       userID: null,
       action: req.url,
       text: "access not granted " + req.url + " from ip:" + req.ip,
       level: 2
     });
+    return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
   }
+  var test = await userCompanyTest(token, req.body.companyID);
+  if (test === true){
+    try {
+      const { userID, userlevel, companyID } = req.body;
+      const userCompany = await UserCompany.findOne({
+        where: { userID, companyID }
+      });
+      if (!userCompany) {
+        return res.json({ "type": "result", "result": "fail", "message": "User not found in company" });
+      }
+      userCompany.userlevel = userlevel;
+      await userCompany.save();
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access granted " + req.url + " from ip:" + req.ip,
+        level: 1
+      });
+      res.json({ "type": "result", "result": "ok", "message": "User updated successfully" });
+      
+    } catch (error) {
+      console.error(error);
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      res.status(500).json({ "type": "result", "result": "fail", "message": "Error updating user" });
+    }
+  }
+  else{
+    Logs.create({
+      userID: decoded.id,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
+    return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+  }
+  
 });
 
 /*
@@ -220,26 +365,52 @@ router.post("/getusercompanydata", async (req, res) => {
   var [result,decoded] = await secTest(token);
 
   if (!result) {
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
     return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
   }
 
   try {
-    const { companyID } = req.body;
-    const userCompany = await UserCompany.findOne({
-      where: { userID: decoded.id, companyID },
-    });
+    var test = await userCompanyTest(token, req.body.companyID);
+    if (test === true){ 
+      const { companyID } = req.body;
+      const userCompany = await UserCompany.findOne({
+        where: { userID: decoded.id, companyID },
+      });
 
-    if (!userCompany) {
-      return res.json({ "type": "result", "result": "fail", "message": "User not found in company" });
+      if (!userCompany) {
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "access not granted " + req.url + " from ip:" + req.ip,
+          level: 2
+        });
+        return res.json({ "type": "result", "result": "fail", "message": "User not found in company" });
+      }
+
+      res.json({ "type": "result", "result": "ok", "message": userCompany });
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access granted " + req.url + " from ip:" + req.ip,
+        level: 1
+      });
+    }
+    else{
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
     }
 
-    res.json({ "type": "result", "result": "ok", "message": userCompany });
-    Logs.create({
-      userID: decoded.id,
-      action: req.url,
-      text: "access granted " + req.url + " from ip:" + req.ip,
-      level: 1
-    });
+    
   } catch (error) {
     console.error(error);
     res.status(500).json({ "type": "result", "result": "fail", "message": "Error fetching company data" });
@@ -265,35 +436,54 @@ router.post('/addlocation', async (req, res) => {
   var [result,decoded] = await secTest(token);
 
   if (!result) {
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
     return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
   }
 
   try {
-    const { companyID, companyName, address, city, zipcode } = req.body;
+    var test = await userCompanyTest(token, req.body.companyID);
+    if (test === true){
+      const { companyID, companyName, address, city, zipcode } = req.body;
 
-    const coords = await getCoords(address, city, zipcode);
-    if (!coords) {
-      return res.json({ type: "result", result: "fail", message: "Invalid address or unable to retrieve coordinates" });
+      const coords = await getCoords(address, city, zipcode);
+      if (!coords) {
+        return res.json({ type: "result", result: "fail", message: "Invalid address or unable to retrieve coordinates" });
+      }
+
+      const location = await Location.create({
+        companyID,
+        name: companyName,
+        address,
+        city,
+        zipcode,
+        type: 4,
+        latitude: coords.data.lat,
+        longitude: coords.data.lng
+      });
+
+      res.json({ type: "result", result: "ok", message: location });
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access granted " + req.url + " from ip:" + req.ip,
+        level: 1
+      });
     }
-
-    const location = await Location.create({
-      companyID,
-      name: companyName,
-      address,
-      city,
-      zipcode,
-      type: 4,
-      latitude: coords.data.lat,
-      longitude: coords.data.lng
-    });
-
-    res.json({ type: "result", result: "ok", message: location });
-    Logs.create({
-      userID: decoded.id,
-      action: req.url,
-      text: "access granted " + req.url + " from ip:" + req.ip,
-      level: 1
-    });
+    else{
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+    }
+    
   } catch (error) {
     console.error(error);
     res.json({ type: "result", result: "fail", message: "Unable to add location" });
@@ -319,39 +509,57 @@ router.post('/getAllLocations', async (req, res) => {
   var [result, decoded] = await secTest(token);
 
   if (!result) {
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
     return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
   }
 
   try {
-
-    const settings = await Settings.findOne({
-      where: {
-        userID: decoded.id,
-        key: "map"
-      }
-    });
-
-    const filterSettings = settings && typeof settings.value === 'string' ? JSON.parse(settings.value) : settings?.value || {};
-
-    const shouldFilter = Object.values(filterSettings).some(value => value === true);
-
-    let locations = [];
-
-    if (!shouldFilter || filterSettings.company) {
-      locations = await Location.findAll({
+    //var test = await userCompanyTest(token, req.body.companyID);
+    //if (test){
+      const settings = await Settings.findOne({
         where: {
-          type: 4
+          userID: decoded.id,
+          key: "map"
         }
       });
-    }
 
-    res.json({ type: "result", result: "ok", message: locations });
-    Logs.create({
-      userID: decoded.id,
-      action: req.url,
-      text: "access granted " + req.url + " from ip:" + req.ip,
-      level: 1
-    });
+      const filterSettings = settings && typeof settings.value === 'string' ? JSON.parse(settings.value) : settings?.value || {};
+
+      const shouldFilter = Object.values(filterSettings).some(value => value === true);
+
+      let locations = [];
+
+      if (!shouldFilter || filterSettings.company) {
+        locations = await Location.findAll({
+          where: {
+            type: 4
+          }
+        });
+      }
+
+      res.json({ type: "result", result: "ok", message: locations });
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access granted " + req.url + " from ip:" + req.ip,
+        level: 1
+      });
+    /*}
+    else{
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+    }*/
+    
   } catch (error) {
     console.error(error);
     res.json({ type: "result", result: "fail", message: "Unable to get locations" });
@@ -378,24 +586,43 @@ router.post('/getlocations/by-company', async (req, res) => {
   var [result,decoded] = await secTest(token);
 
   if (!result) {
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
     return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
   }
 
   try {
-    const locations = await Location.findAll({
-      where: {
-        companyID: req.body.companyID,
-        type: 4 
-      }
-    });
+    var test = await userCompanyTest(token, req.body.companyID);
+    if (test === true){
+      const locations = await Location.findAll({
+        where: {
+          companyID: req.body.companyID,
+          type: 4 
+        }
+      });
 
-    res.json({ type: "result", result: "ok", message: locations });
-    Logs.create({
-      userID: decoded.id,
-      action: req.url,
-      text: "access granted " + req.url + " from ip:" + req.ip,
-      level: 1
-    });
+      res.json({ type: "result", result: "ok", message: locations });
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access granted " + req.url + " from ip:" + req.ip,
+        level: 1
+      });
+    }
+    else{
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+    }
+    
   } catch (error) {
     console.error(error);
     res.json({ type: "result", result: "fail", message: "Unable to get locations" });
@@ -424,38 +651,75 @@ router.post('/updatelocation', async (req, res) => {
   var [result,decoded] = await secTest(token);
 
   if (!result) {
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
     return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
   }
 
   try {
-    const { locationID, address, city, zipcode } = req.body;
+    var test = await userCompanyTest(token, req.body.companyID);
+    if (test === true){
+      const { locationID, address, city, zipcode } = req.body;
 
-    const coords = await getCoords(address, city, zipcode);
-    if (!coords) {
-      return res.json({ type: "result", result: "fail", message: "Invalid address or unable to retrieve coordinates" });
-    }
-
-    const location = await Location.update({
-      address,
-      city,
-      zipcode,
-      latitude: coords.data.lat,
-      longitude: coords.data.lng
-    }, {
-      where: {
-        id: locationID,
-        companyID: req.body.companyID,
-        type: 4 
+      const coords = await getCoords(address, city, zipcode);
+      if (!coords) {
+        return res.json({ type: "result", result: "fail", message: "Invalid address or unable to retrieve coordinates" });
       }
-    });
 
-    if (location[0] > 0) {
-      res.json({ type: "result", result: "ok", message: "Location updated successfully" });
-    } else {
-      res.json({ type: "result", result: "fail", message: "Location not found or unauthorized" });
+      const location = await Location.update({
+        address,
+        city,
+        zipcode,
+        latitude: coords.data.lat,
+        longitude: coords.data.lng
+      }, {
+        where: {
+          id: locationID,
+          companyID: req.body.companyID,
+          type: 4 
+        }
+      });
+
+      if (location[0] > 0) {
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "access granted " + req.url + " from ip:" + req.ip,
+          level: 1
+        });
+        res.json({ type: "result", result: "ok", message: "Location updated successfully" });
+      } else {
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "Location not found or unauthorized " + req.url + " from ip:" + req.ip,
+          level: 2
+        });
+        res.json({ type: "result", result: "fail", message: "Location not found or unauthorized" });
+      }
     }
+    else{
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+    }
+    
   } catch (error) {
     console.error(error);
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
     res.json({ type: "result", result: "fail", message: "Unable to update location" });
   }
 }
@@ -475,27 +739,408 @@ router.post('/deletelocation', async (req, res) => {
   var [result,decoded] = await secTest(token);
 
   if (!result) {
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
     return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
   }
 
   try {
-    const location = await Location.destroy({
-      where: {
-        id: req.body.locationID,
-        companyID: req.body.companyID,
-      }
-    });
+    var test = await userCompanyTest(token, req.body.companyID);
+    if (test === true){
+      const location = await Location.destroy({
+        where: {
+          id: req.body.locationID,
+          companyID: req.body.companyID,
+        }
+      });
 
-    if (location) {
-      res.json({ type: "result", result: "ok", message: "Location deleted successfully" });
-    } else {
-      res.json({ type: "result", result: "fail", message: "Location not found or unauthorized" });
+      if (location) {
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "access granted " + req.url + " from ip:" + req.ip,
+          level: 1
+        });
+        res.json({ type: "result", result: "ok", message: "Location deleted successfully" });
+      } else {
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "Location not found or unauthorized " + req.url + " from ip:" + req.ip,
+          level: 2
+        });
+        res.json({ type: "result", result: "fail", message: "Location not found or unauthorized" });
+      }
     }
+    else{
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+    }
+    
   } catch (error) {
     console.error(error);
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
     res.json({ type: "result", result: "fail", message: "Unable to delete location" });
   }
 }
 );
+
+/*
+  * @route POST /company/getcertificates
+  * @param {uuid} companyID 
+  * @return {json}
+  *   @key type @value result
+  *   @key result @value ["ok", "fail"]
+  *   @key message @value if fail {string} error message, if ok {array} certificates
+  */
+router.post('/getcertificates', async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  if (!result) {
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
+    return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+  }
+  var test = await userCompanyTest(token, req.body.companyID);
+  if (test === true){
+    try {
+      const companyCertificates = await CompanyCertificates.findAll({
+        where: {
+          companyID: req.body.companyID
+        }
+      });
+      const client = await minioconnector.createConnection();
+      for (const certificate of companyCertificates) {
+        if (certificate.dataValues.file != null) {
+          const filePath = certificate.dataValues.file; 
+          const [folder, filename] = filePath.split('/'); // Split into folder and filename
+          const tempLink = await minioconnector.getLink(client, folder, filename);
+          certificate.dataValues.fileLink = tempLink; // Add the temporary link to the offer
+        }
+      }
+      console.log(companyCertificates);
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access granted " + req.url + " from ip:" + req.ip,
+        level: 1
+      });
+      res.json({ type: "result", result: "ok", message: companyCertificates });
+    } catch (error) {
+      console.error(error);
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      res.json({ type: "result", result: "fail", message: "Unable to get certificates" });
+    }
+  }
+  else{
+    Logs.create({
+      userID: decoded.id,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
+    res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+  }
+});
+
+/*
+  * @route POST /company/addcertificate
+  * @param {uuid} companyID
+  * @param {string} type
+  * @param {string} name
+  * @param {string} description
+  * @param {string} file
+  * @return {json}
+  *   @key type @value result
+  *   @key result @value ["ok", "fail"]
+  *   @key message @value if fail {string} error message, if ok {string} success message 
+  */
+router.post('/addcertificate', async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  if (!result) {
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
+    return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+  }
+  try {
+    var body = req.body;
+    var test = await userCompanyTest(token, body.companyID);
+    if (test === true){
+      const certificate = await CompanyCertificates.create({
+        companyID: body.companyID,
+        type: body.type,
+        name: body.name,
+        description: body.description
+      });
+      if (body.file64 !=null && body.file64 != undefined && body.file64 != ""){
+        const client = await minioconnector.createConnection();
+        try{
+          const dataUrl = body.file64;
+          const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+          if (!matches || matches.length !== 3) {
+            throw new Error("Invalid data URL format");
+          }
+          const mimeType = matches[1]; // Extract MIME type
+          const base64Data = matches[2]; // Extract base64 data
+          const buffer = Buffer.from(base64Data, 'base64'); // Convert base64 to buffer
+          const folder = 'certificates'; // Define the bucket/folder name
+          let fileExt = ''; 
+          if (body.filename && body.filename.includes('.')) {
+              const extMatch = body.filename.match(/\.[0-9a-z]+$/i);
+              fileExt = extMatch ? extMatch[0] : ''; 
+            }
+          const filename = `${certificate.id}${fileExt}`; // Generate a unique filename
+              
+          // Upload the file to MinIO
+          await minioconnector.insert(client, buffer, filename, folder);
+          await CompanyCertificates.update({
+            file: `${folder}/${filename}`
+          }, {
+            where: {
+              id: certificate.id
+            }
+          });
+        }
+        catch (error) {
+          console.error("Error uploading file to MinIO:", error);
+        }
+      }
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access granted " + req.url + " from ip:" + req.ip,
+        level: 1
+      });
+      res.json({ type: "result", result: "ok", message: certificate });
+    }
+    else{
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+    }
+    
+  } catch (error) {
+    console.error(error);
+    Logs.create({
+      userID: decoded.id,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
+    res.json({ type: "result", result: "fail", message: "Unable to add certificate" });
+  }
+});
+
+/*
+* @route POST /company/editcertificate
+* @param {uuid} certificateID
+* @param {string} type
+* @param {string} name
+* @param {string} description
+* @param {string} file
+* @return {json}
+*   @key type @value result
+*   @key result @value ["ok", "fail"]
+*   @key message @value if fail {string} error message, if ok {string} success message 
+*/
+router.post('/editcertificate', async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  if (!result) {
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
+    return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+  }
+  try {
+    var body = req.body;
+    var test = await userCompanyTest(token, body.companyID);
+    if (test === true){
+      const certificate = await CompanyCertificates.findOne({
+        where: {
+          id: body.certificateID,
+          companyID: body.companyID
+        }
+      });
+      if (!certificate) {
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "Certificate not found or unauthorized " + req.url + " from ip:" + req.ip,
+          level: 2
+        });
+        return res.json({ type: "result", result: "fail", message: "Certificate not found or unauthorized" });
+      }
+      certificate.type = body.type;
+      certificate.name = body.name;
+      certificate.description = body.description;
+      await certificate.save();
+      if (body.file64 !=null && body.file64 != undefined && body.file64 != ""){
+        const client = await minioconnector.createConnection();
+        try{
+          const dataUrl = body.file64;
+          const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+          if (!matches || matches.length !== 3) {
+            throw new Error("Invalid data URL format");
+          }
+          const mimeType = matches[1]; // Extract MIME type
+          const base64Data = matches[2]; // Extract base64 data
+          const buffer = Buffer.from(base64Data, 'base64'); // Convert base64 to buffer
+          const folder = 'certificates'; // Define the bucket/folder name
+          console.log("filename", body.filename);
+          let fileExt = ''; 
+          if (body.filename) {
+              const extMatch = body.filename.match(/\.[0-9a-z]+$/i);
+              fileExt = extMatch ? extMatch[0] : ''; 
+          }
+          console.log("fileExt", fileExt);
+          const filename = `${certificate.id}${fileExt}`; // Generate a unique filename
+              
+          // Upload the file to MinIO
+          await minioconnector.insert(client, buffer, filename, folder);
+          await CompanyCertificates.update({
+            file: `${folder}/${filename}`
+          }, {
+            where: {
+              id: certificate.id
+            }
+          });
+        }
+        catch (error) {
+          console.error("Error uploading file to MinIO:", error);
+        }
+      }
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access granted " + req.url + " from ip:" + req.ip,
+        level: 1
+      });
+      res.json({ type: "result", result: "ok", message: certificate });
+    }
+    else{
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+    }
+  } catch (error) {
+    console.error(error);
+    Logs.create({
+      userID: decoded.id,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
+    res.json({ type: "result", result: "fail", message: "Unable to edit certificate" });
+  }
+});
+
+/* @route POST /company/removecertificate
+ * @param {uuid} certificateID
+ * @param {uuid} companyID
+ * @return {json}
+ *   @key type @value result
+ *   @key result @value ["ok", "fail"]
+ *   @key message @value if fail {string} error message, if ok {string} success message 
+ */
+router.post('/removecertificate', async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  if (!result) {
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
+    return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+  }
+  try {
+    var test = await userCompanyTest(token, req.body.companyID);
+    if (test === true){
+      const certificate = await CompanyCertificates.destroy({
+        where: {
+          id: req.body.certificateID,
+          companyID: req.body.companyID
+        }
+      });
+
+      if (certificate) {
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "access granted " + req.url + " from ip:" + req.ip,
+          level: 1
+        });
+        res.json({ type: "result", result: "ok", message: "Certificate deleted successfully" });
+      } else {
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "Certificate not found or unauthorized " + req.url + " from ip:" + req.ip,
+          level: 2
+        });
+        res.json({ type: "result", result: "fail", message: "Certificate not found or unauthorized" });
+      }
+    }
+    else{
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+    }
+  } catch (error) {
+    console.error(error);
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
+    res.json({ type: "result", result: "fail", message: "Unable to delete certificate" });
+  }
+});
 
 export default router;

@@ -1,9 +1,9 @@
 import express from 'express';
-import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics} from '../models/index.js';
+import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Certificates, CompanyCertificates} from '../models/index.js';
 import jwt from 'jsonwebtoken';
 import { adminTest } from '../functions/utils.js'; 
 const router = express.Router();
-
+import minioconnector from '../minioconnector.js';
 
 
 /* update user with admin rights */
@@ -37,14 +37,33 @@ router.post("/updateuser", async (req, res) => {
             id: body.id
           }
         });
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "user updated: " + body.id + " from ip:" + req.ip,
+          level: 1
+        });
         res.json({"type":"result","result":"ok","message":user});
       }
       catch (error) {
         console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
+        
         res.status(500).json({"type":"result","result":"fail","message": "cannot update user"});
       }
     }
     else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
       return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
   });
@@ -67,6 +86,12 @@ router.post("/getlimitedusers", async (req, res) => {
     const allowedLimits = [5, 25, 50, 75, 100];
 
     if (!allowedLimits.includes(limit)) {
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "invalid limit: " + limit + " from ip:" + req.ip, 
+        level: 2
+      });
       return res.status(400).json({
         type: "result",
         result: "fail",
@@ -81,10 +106,21 @@ router.post("/getlimitedusers", async (req, res) => {
     });
 
     const totalUsers = await User.count();
-
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access granted: " + req.url + " from ip:" + req.ip,
+      level: 1
+    });
     res.json({ type: "result", result: "ok", message: users, total: totalUsers });
   } catch (error) {
     console.error(error);
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "error: " + error + " from ip:" + req.ip,
+      level: 3
+    });
     res.status(500).json({ type: "result", result: "fail", message: "cannot get users" });
   }
 });
@@ -106,13 +142,13 @@ router.post("/updatecompanystatus", async (req, res) => {
         const { id, status } = req.body;
     
         if (!id || status === undefined) {
-          res.status(400).json({ result: "error", "message": "Company ID and status are required" });
           Logs.create({
             userID: result[1].id,
             action: req.url,
             text: "Company ID or status missing from ip:" + req.ip,
             level: 3
           });
+          return res.status(400).json({ result: "error", "message": "Company ID and status are required" });
         }
     
         const [updated] = await Company.update(
@@ -214,13 +250,18 @@ router.post("/getallcompanies", async (req, res) => {
   * @key message @value if fail {string} error message, if ok {json} company
 */
 router.post("/deletecompany", async (req, res) => {
-  console.log("request body:", req.body);
   adminTest(req.headers['authorization']).then(async (result) => {
     if (result[0]) {
       try {
         var body = req.body;
         const id = body.id;
         if (!id) {
+          Logs.create({
+            userID: result[1].id,
+            action: req.url,
+            text: "Company ID is required from ip:" + req.ip,
+            level: 3
+          });
           return res.status(400).json({ type: "result", result: "fail", message: "Company ID is required" });
         }
 
@@ -233,10 +274,21 @@ router.post("/deletecompany", async (req, res) => {
             }
           });
         });
-
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "company deleted: " + body.id + " from ip:" + req.ip,
+          level: 1
+        });
         res.json({ type: "result", result: "ok", message: company });
       } catch (error) {
         console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
         res.status(500).json({ type: "result", result: "fail", message: "unable to delete company" });
       }
     }
@@ -270,10 +322,22 @@ router.post("/addmaterial", async (req, res) => {
           other: body.other,
           locality: body.locality
         });
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "material created: " + material.id + " from ip:" + req.ip,
+          level: 1
+        });
         res.json({"type":"result","result":"ok","message":material});
       }
       catch (error) {
         console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
         res.status(500).json({"type":"result","result":"fail","message": "cannot create material"});
       }
     }
@@ -295,13 +359,31 @@ router.post("/getmaterials", async (req, res) => {
     if (result[0]) {
       try {
         const materials = await Material.findAll();
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "access granted: " + req.url + " from ip:" + req.ip,
+          level: 1
+        });
         res.json({ "type": "result", "result": "ok", "message": materials });
       } catch (error) {
         console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
         res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get materials" });
       }
     }
     else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
       return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
   });
@@ -340,9 +422,21 @@ router.post("/editmaterial", async (req, res) => {
             id: body.id
           }
         });
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "material updated: " + body.id + " from ip:" + req.ip,
+          level: 1
+        });
         res.json({ "type": "result", "result": "ok", "message": material });
       } catch (error) {
         console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
         res.status(500).json({ "type": "result", "result": "fail", "message": "unable to update material" });
       }
     }
@@ -367,9 +461,21 @@ router.post("/deletematerial", async (req, res) => {
             id: body.id
           }
         });
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "material deleted: " + body.id + " from ip:" + req.ip,
+          level: 1
+        });
         res.json({ "type": "result", "result": "ok", "message": material });
       } catch (error) {
         console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
         res.status(500).json({ "type": "result", "result": "fail", "message": "unable to delete material" });
       }
     }
@@ -397,16 +503,40 @@ router.post("/publishblogpost", async (req, res) => {
           returning: true
         });
         if (numberOfAffectedRows > 0) {
+          Logs.create({
+            userID: result[1].id,
+            action: req.url,
+            text: "Blog post published: " + body.postID + " from ip:" + req.ip,
+            level: 1
+          });
           res.json({ "type": "result", "result": "ok" });
         } else {
+          Logs.create({
+            userID: result[1].id,
+            action: req.url,
+            text: "Blog post not found: " + body.postID + " from ip:" + req.ip,
+            level: 1
+          });
           res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
         }
       } catch (error) {
         console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
         res.status(500).json({ "type": "result", "result": "fail", "message": "unable to change blog post status" });
       }
     }
     else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
       return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
   });
@@ -434,16 +564,40 @@ router.post("/unpublishblogpost", async (req, res) => {
           returning: true
         });
         if (numberOfAffectedRows > 0) {
+          Logs.create({
+            userID: result[1].id,
+            action: req.url,
+            text: "Blog post unpublished: " + body.postID + " from ip:" + req.ip,
+            level: 1
+          });
           res.json({ "type": "result", "result": "ok" });
         } else {
+          Logs.create({
+            userID: result[1].id,
+            action: req.url,
+            text: "Blog post not found: " + body.postID + " from ip:" + req.ip,
+            level: 1
+          });
           res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
         }
       } catch (error) {
         console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
         res.status(500).json({ "type": "result", "result": "fail", "message": "unable to change blog post status" });
       }
     }
     else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
       return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
   });
@@ -468,16 +622,40 @@ router.post("/deleteblogpost", async (req, res) => {
           }
         });
         if (numberOfDeletedRows > 0) {
+          Logs.create({
+            userID: result[1].id,
+            action: req.url,
+            text: "Blog post deleted: " + body.postID + " from ip:" + req.ip,
+            level: 1
+          });
           res.json({ "type": "result", "result": "ok" });
         } else {
+          Logs.create({
+            userID: result[1].id,
+            action: req.url,
+            text: "Blog post not found: " + body.postID + " from ip:" + req.ip,
+            level: 1
+          });
           res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
         }
       } catch (error) {
         console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
         res.status(500).json({ "type": "result", "result": "fail", "message": "unable to delete blog post" });
       }
     }
     else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
       return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
   });
@@ -496,13 +674,31 @@ router.post("/getallblogposts", async (req, res) => {
     if (result[0]) {
       try {
         const blogposts = await BlogPost.findAll();
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "access granted: " + req.url + " from ip:" + req.ip,
+          level: 1
+        });
         res.json({ "type": "result", "result": "ok", "message": blogposts });
       } catch (error) {
         console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
         res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get blog posts" });
       }
     }
     else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
       return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
   });
@@ -530,14 +726,32 @@ router.post("/createblogpost", async (req, res) => {
           userID: body.userID,
           blogPostType: body.blogPostType
         });
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "Blog post created: " + blogpost.postID + " from ip:" + req.ip,
+          level: 1
+        });
         res.json({"type":"result","result":"ok","message":blogpost});
       }
       catch (error) {
         console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
         res.status(500).json({"type":"result","result":"fail","message": "unable to  create blog post"});
       }
     }
     else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
       return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
   });
@@ -573,16 +787,369 @@ router.post("/updateblogpost", async (req, res) => {
           returning: true
         });
         if (numberOfAffectedRows > 0) {
+          Logs.create({
+            userID: result[1].id,
+            action: req.url,
+            text: "Blog post updated: " + body.postID + " from ip:" + req.ip,
+            level: 1
+          });
           res.json({ "type": "result", "result": "ok", "message": blogpost[0] });
         } else {
+          Logs.create({
+            userID: result[1].id,
+            action: req.url,
+            text: "Blog post not found: " + body.postID + " from ip:" + req.ip,
+            level: 1
+          });
           res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
         }
       } catch (error) {
         console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
         res.status(500).json({"type":"result","result":"fail","message": "unable to update blog post"});
       }
     }
     else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
+
+/*
+* @route POST /admin/getcertificates
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} certificates
+*/
+router.post("/getcertificates", async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        const certificates = await Certificates.findAll({});
+        const client = await minioconnector.createConnection();
+        
+            // Add temporary file links to each certificate
+        for (const certificate of certificates) {
+          if (certificate.dataValues.file != null) {
+            const filePath = certificate.dataValues.file; 
+            const [folder, filename] = filePath.split('/'); // Split into folder and filename
+            const tempLink = await minioconnector.getLink(client, folder, filename);
+            certificate.dataValues.fileLink = tempLink; // Add the temporary link to the offer
+          }
+        }
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "access granted: " + req.url + " from ip:" + req.ip,
+          level: 1
+        });
+        res.json({ "type": "result", "result": "ok", "message": certificates });
+      } 
+      catch (error) {
+        console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get certificates" });
+      }
+    }
+    else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
+
+/*
+* @route POST /admin/getcompanycertificates
+* @param {uuid} companyID (optional - if not provided, all company certificates will be returned)
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} company certificates
+*/
+router.post("/getcompanycertificates", async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        
+        const companyCertificates = await CompanyCertificates.findAll({
+          include:[Company]
+        });
+        for (const certificate of companyCertificates) {
+          if (certificate.dataValues.file != null) {
+            const filePath = certificate.dataValues.file; 
+            const [folder, filename] = filePath.split('/'); // Split into folder and filename
+            const tempLink = await minioconnector.getLink(client, folder, filename);
+            certificate.dataValues.fileLink = tempLink; // Add the temporary link to the offer
+          }
+        }
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "access granted: " + req.url + " from ip:" + req.ip,
+          level: 1
+        });
+        res.json({ "type": "result", "result": "ok", "message": companyCertificates });
+      } catch (error) {
+        console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get company certificates" });
+      }
+    }
+    else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip, 
+        level: 2
+      });
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
+
+/*
+* @route POST /admin/addcertificate
+* @param {string} type
+* @param {string} name
+* @param {string} file
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} certificate
+*/
+router.post("/addcertificate", async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) { 
+      try {
+        var body = req.body;
+        
+        const certificate = await Certificates.create({
+          type: body.type,
+          name: body.name,
+          description: body.description
+        });
+        if (body.file64 !=null && body.file64 != undefined && body.file64 != ""){
+          const client = await minioconnector.createConnection();
+          try{
+            const dataUrl = body.file64;
+            const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+            if (!matches || matches.length !== 3) {
+              throw new Error("Invalid data URL format");
+            }
+            const mimeType = matches[1]; // Extract MIME type
+            const base64Data = matches[2]; // Extract base64 data
+            const buffer = Buffer.from(base64Data, 'base64'); // Convert base64 to buffer
+            const folder = 'certificates'; // Define the bucket/folder name
+            let fileExt = '';
+            if (body.filename && body.filename.includes('.')) {
+              const extMatch = body.filename.match(/\.[0-9a-z]+$/i);
+              fileExt = extMatch ? extMatch[0] : ''; 
+            }
+            const filename = `${certificate.id}${fileExt}`; // Generate a unique filename
+            
+            // Upload the file to MinIO
+            await minioconnector.insert(client, buffer, filename, folder);
+            await Certificates.update({
+              file: `${folder}/${filename}`
+            }, {
+              where: {
+                id: certificate.id
+              }
+            });
+          }
+          catch (error) {
+            console.error("Error uploading file to MinIO:", error);
+          }
+        }
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "certificate created: " + certificate.id + " from ip:" + req.ip,
+          level: 1
+        });
+        res.json({ "type": "result", "result": "ok", "message": certificate });
+      } catch (error) {
+        console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to create certificate" });
+      }
+    }
+    else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
+
+/** @route POST /admin/removecertificate
+* @param {uuid} id  
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} deleted certificate
+*/
+router.post("/removecertificate", async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        var body = req.body;
+        const certificate = await Certificates.destroy({
+          where: {
+            id: body.certificateID
+          }
+        });
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "certificate deleted: " + body.certificateID + " from ip:" + req.ip,
+          level: 1
+        });
+        res.json({ "type": "result", "result": "ok", "message": certificate });
+      } catch (error) {
+        console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to delete certificate" });
+      }
+    }
+    else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
+
+/* @route POST /admin/editcertificate
+* @param {uuid} id
+* @param {string} type
+* @param {string} name
+* @param {string} description
+* @param {string} file (optional)
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} updated certificate
+*/
+router.post("/editcertificate", async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {  
+      try {
+        var body = req.body;
+        const certificate = await Certificates.update({
+          type: body.type,
+          name: body.name,
+          description: body.description
+        }, {
+          where: {
+            id: body.certificateID
+          },
+          returning: true
+        });
+        
+        if (body.file64 != null && body.file64 != undefined && body.file64 != "") {
+          const client = await minioconnector.createConnection();
+          try {
+            const dataUrl = body.file64;
+            const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+            if (!matches || matches.length !== 3) {
+              throw new Error("Invalid data URL format");
+            }
+            const mimeType = matches[1]; // Extract MIME type
+            const base64Data = matches[2]; // Extract base64 data
+            const buffer = Buffer.from(base64Data, 'base64'); // Convert base64 to buffer
+            const folder = 'certificates'; // Define the bucket/folder name
+            let fileExt = '';
+            if (body.filename && body.filename.includes('.')) {
+              const extMatch = body.filename.match(/\.[0-9a-z]+$/i);
+              fileExt = extMatch ? extMatch[0] : ''; 
+            }
+            const filename = `${body.id}${fileExt}`; // Generate a unique filename
+            
+            // Upload the file to MinIO
+            await minioconnector.insert(client, buffer, filename, folder);
+            await Certificates.update({
+              file: `${folder}/${filename}`
+            }, {
+              where: {
+                id: body.id
+              }
+            });
+          } catch (error) {
+            console.error("Error uploading file to MinIO:", error);
+          }
+        }
+        
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "certificate updated: " + body.certificateID + " from ip:" + req.ip,
+          level: 1
+        });
+        res.json({ "type": "result", "result": "ok", "message": certificate[1][0] });
+      } catch (error) {
+        console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to update certificate" });
+      }
+    }
+    else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
       return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
   });
