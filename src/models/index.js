@@ -40,4 +40,7 @@ Logistics.belongsTo(Company, { foreignKey: 'companyID' });
 Subscription.belongsTo(User, { foreignKey: 'userID' });
 User.hasMany(BlogPost, { foreignKey: 'userID' });
 
+User.hasMany(Subscription, { foreignKey: 'userID' });
+Subscription.belongsTo(User, { foreignKey: 'userID' });
+
 export { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Openapi };

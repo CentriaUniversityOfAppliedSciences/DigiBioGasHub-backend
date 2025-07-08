@@ -22,6 +22,7 @@ import { OFFER_UNITS, OFFER_CARGOTYPE, MATERIAL_TYPE} from './constants/constant
 import logisticsRouter from './routes/logistics.js';
 import adminRouter from './routes/admin.js';
 import companyRouter from './routes/company.js';
+import subscriptionRouter from './routes/subscription.js';
 import apikeyRouter from './routes/apikey.js';
 import { getCoords, secTest, adminTest } from './functions/utils.js';
 app.use(morgan('combined'));
@@ -1976,7 +1977,7 @@ app.use('/logistics', logisticsRouter);
 app.use('/admin', adminRouter);
 app.use('/company', companyRouter);
 app.use ('/apikey', apikeyRouter);
-
+app.use('/subscription', subscriptionRouter);
 //these must be at the bottom but before listen !!!!
 
 /*app.use((req, res) => { //no redirects in use so commented

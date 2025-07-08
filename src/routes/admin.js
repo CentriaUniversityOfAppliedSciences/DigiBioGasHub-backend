@@ -588,4 +588,48 @@ router.post("/updateblogpost", async (req, res) => {
   });
 });
 
+
+/*
+* @route POST /admin/giftsubscription
+* @param {uuid} userID
+* @param {date} subscriptionDate
+* @param {date} expirationDate
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} subscription details
+*/
+router.post('/giftsubscription', async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        const { userID, subscriptionDate, expirationDate } = req.body;
+
+        if (!userID || !subscriptionDate || !expirationDate) {
+          return res.status(400).json({ type: "result", result: "fail", message: "Missing required fields" });
+        }
+
+        const subscription = await Subscription.create({
+          userID,
+          subscriptionDate,
+          expirationDate,
+          status: "active",
+        });
+
+        if (subscription) {
+          await User.update({ isPremiumUser: true }, { where: { id: userID } });
+        }
+
+        res.json({ "type": "result", "result": "ok", "message": subscription });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to register subscription" });
+      }
+    }
+    else {
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
+
 export default router;
