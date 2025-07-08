@@ -1,48 +1,53 @@
 import { DataTypes } from 'sequelize';
 
-import  sequelize  from './database.js';
+import sequelize from './database.js';
 
 
-const User = sequelize.define('User',{
-    id:{
+const User = sequelize.define('User', {
+    id: {
         type: DataTypes.UUID,
-        defaultValue:DataTypes.UUIDV4,
-        primaryKey:true,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
         allowNull: false,
         unique: true,
     },
     username: {
-        type:DataTypes.TEXT,
+        type: DataTypes.TEXT,
         unique: true,
-        allowNull:false
+        allowNull: false
     },
-    password:{
+    password: {
         type: DataTypes.STRING(1000),
         allowNull: false,
     },
-    name:{
+    name: {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    email:{
+    email: {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    phone:{
+    phone: {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    authMethod:{
+    authMethod: {
         type: DataTypes.STRING,
     },
-    userlevel:{
+    userlevel: {
         type: DataTypes.SMALLINT
     },
-    hubID:{
+    isPremiumUser: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    hubID: {
         type: DataTypes.BIGINT
     },
-    language:{
+    language: {
         type: DataTypes.STRING
     }
 });
+
 export default User;
