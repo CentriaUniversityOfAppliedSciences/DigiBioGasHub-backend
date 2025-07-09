@@ -1,4 +1,5 @@
 import express from 'express';
+import { Op } from 'sequelize';
 import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Certificates, CompanyCertificates} from '../models/index.js';
 import jwt from 'jsonwebtoken';
 import { adminTest } from '../functions/utils.js'; 
@@ -1173,7 +1174,7 @@ router.post('/giftsubscription', async (req, res) => {
         let { userID, subscriptionDate, expirationDate } = req.body;
 
         if (!userID || !subscriptionDate || !expirationDate) {
-          return res.status(400).json({ type: "result", result: "fail", message: "Missing required fields" });
+          return res.status(400).json({ "type": "result", "result": "fail", "message": "Missing required fields" });
         }
   
         subscriptionDate = new Date(subscriptionDate);
@@ -1206,6 +1207,51 @@ router.post('/giftsubscription', async (req, res) => {
       } catch (error) {
         console.error(error);
         res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to register subscription" });
+      }
+    }
+    else {
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
+
+/*
+* @route POST /admin/cancelsubscription
+* @param {uuid} userID
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} subscription details
+*/
+router.post('/cancelusersubscription', async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        const { userID } = req.body;
+
+        if (!userID) {
+          return res.status(400).json({ "type": "result", "result": "fail", "message": "Missing userID" });
+        }
+
+        await Subscription.update(
+          { status: 'cancelled' },
+          {
+            where: {
+              userID,
+              expirationDate: {
+                [Op.gt]: new Date()
+              },
+              status: 'active'
+            }
+          }
+        );
+
+        await User.update({ isPremiumUser: false }, { where: { id: userID } });
+
+        res.json({ "type": "result", "result": "ok", "message": "Subscription cancelled successfully" });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to cancel subscription" });
       }
     }
     else {
