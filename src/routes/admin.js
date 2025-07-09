@@ -1203,14 +1203,34 @@ router.post('/giftsubscription', async (req, res) => {
           await User.update({ isPremiumUser: true }, { where: { id: userID } });
         }
 
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "Subscription gifted to user: " + userID + " from ip:" + req.ip,
+          level: 1
+        });
+
         res.json({ "type": "result", "result": "ok", "message": subscription });
       } catch (error) {
         console.error(error);
+
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
         res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to register subscription" });
       }
     }
     else {
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized access: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
   });
 });
@@ -1247,15 +1267,33 @@ router.post('/cancelusersubscription', async (req, res) => {
         );
 
         await User.update({ isPremiumUser: false }, { where: { id: userID } });
-
+        
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "Subscription cancelled for user: " + userID + " from ip:" + req.ip,
+          level: 1
+        });
         res.json({ "type": "result", "result": "ok", "message": "Subscription cancelled successfully" });
       } catch (error) {
         console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
         res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to cancel subscription" });
       }
     }
     else {
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized access: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
   });
 });
