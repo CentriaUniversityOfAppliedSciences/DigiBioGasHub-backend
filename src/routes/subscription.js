@@ -21,12 +21,12 @@ router.get('/me', async (req, res) => {
         return res.status(403).json({ "error": 'Unauthorized' });
     }
     try {
-        const subscription = await Subscription.findOne({
+        const subscription = await Subscription.findAll({
             where: { userID: decoded.id, status: 'active' }
         });
 
-        if (!subscription) {
-            return res.json({ "message": 'Subscription not found' });
+        if (!subscription || subscription.length === 0) {
+            return res.json({ "message": 'No active subscription found' });
         }
 
         Logs.create({
@@ -64,8 +64,11 @@ router.post('/cancel', async (req, res) => {
         return res.status(403).json({ "error": 'Unauthorized' });
     }
     try {
+        
+        const { subscriptionID } = req.body;
+
         const subscription = await Subscription.findOne({
-            where: { userID: decoded.id, status: 'active' }
+            where: { id: subscriptionID ,userID: decoded.id, status: 'active' }
         });
 
         if (!subscription) {
@@ -74,6 +77,16 @@ router.post('/cancel', async (req, res) => {
 
         subscription.status = 'canceled';
         await subscription.save();
+
+        const activeSubscriptions = await Subscription.count({
+            where: { userID: decoded.id, status: 'active' }
+        });
+        
+        if (activeSubscriptions === 0) {
+            const user = await User.findOne({ where: { id: decoded.id }});
+            user.isPremiumUser = false;
+            await user.save();
+        }
 
         Logs.create({
             userID: decoded.id,
