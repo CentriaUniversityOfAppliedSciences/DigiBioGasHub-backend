@@ -1200,7 +1200,7 @@ router.post('/giftsubscription', async (req, res) => {
         });
 
         if (subscription) {
-          await User.update({ isPremiumUser: true }, { where: { id: userID } });
+          await User.update({ userlevel: 2, isPremiumUser: true }, { where: { id: userID } });
         }
 
         Logs.create({
