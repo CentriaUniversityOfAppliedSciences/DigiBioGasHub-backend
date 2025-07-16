@@ -22,6 +22,8 @@ import logisticsRouter from './routes/logistics.js';
 import adminRouter from './routes/admin.js';
 import companyRouter from './routes/company.js';
 import subscriptionRouter from './routes/subscription.js';
+import checkoutRouter from './routes/checkout.js';
+import stripewebhookRouter from './routes/srtipewebhook.js';
 import apikeyRouter from './routes/apikey.js';
 import { getCoords, secTest, adminTest } from './functions/utils.js';
 app.use(morgan('combined'));
@@ -99,6 +101,7 @@ var corsOptionsDelegate = async function (req,callback) {
   //}
 }
 app.use(cors(corsOptionsDelegate));
+app.use('/webhook', stripewebhookRouter);
 //app.use(express.bodyParser({limit: '1500mb' }));
 //app.use(express.json({limit: '200mb' }));
 //app.use(express.urlencoded({limit: '200mb', extended: true }));
@@ -115,7 +118,7 @@ app.use(bodyParser.json({limit: '200mb'}));
 */
 
 app.use(async (req, res, next) => {
-  if (req.url == '/login' || req.url == '/register' || req.url == '/stations'){ 
+  if (req.url == '/login' || req.url == '/register' || req.url == '/stations' || req.url == '/webhook'){ 
     if (req.method == 'POST' || req.method == 'GET'){
       await Logs.create({
         userID: null,
@@ -2010,6 +2013,9 @@ app.use('/admin', adminRouter);
 app.use('/company', companyRouter);
 app.use ('/apikey', apikeyRouter);
 app.use('/subscription', subscriptionRouter);
+app.use('/payment', checkoutRouter);
+
+
 //these must be at the bottom but before listen !!!!
 
 /*app.use((req, res) => { //no redirects in use so commented

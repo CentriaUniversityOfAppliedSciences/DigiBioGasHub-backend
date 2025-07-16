@@ -1,4 +1,5 @@
 import express from 'express';
+import { Op } from 'sequelize';
 import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Certificates, CompanyCertificates} from '../models/index.js';
 import jwt from 'jsonwebtoken';
 import { adminTest } from '../functions/utils.js'; 
@@ -1174,10 +1175,25 @@ router.post('/giftsubscription', async (req, res) => {
   adminTest(req.headers['authorization']).then(async (result) => {
     if (result[0]) {
       try {
-        const { userID, subscriptionDate, expirationDate } = req.body;
+        let { userID, subscriptionDate, expirationDate } = req.body;
 
         if (!userID || !subscriptionDate || !expirationDate) {
-          return res.status(400).json({ type: "result", result: "fail", message: "Missing required fields" });
+          return res.status(400).json({ "type": "result", "result": "fail", "message": "Missing required fields" });
+        }
+  
+        subscriptionDate = new Date(subscriptionDate);
+        expirationDate = new Date(expirationDate);
+
+        const latestSub = await Subscription.findOne({
+          where: { userID },
+          order: [['expirationDate', 'DESC']]
+        });
+
+        if (latestSub && new Date(latestSub.expirationDate) > subscriptionDate) {
+
+          const durationMs = expirationDate - subscriptionDate;
+          subscriptionDate = new Date(latestSub.expirationDate);
+          expirationDate = new Date(subscriptionDate.getTime() + durationMs);
         }
 
         const subscription = await Subscription.create({
@@ -1188,17 +1204,100 @@ router.post('/giftsubscription', async (req, res) => {
         });
 
         if (subscription) {
-          await User.update({ isPremiumUser: true }, { where: { id: userID } });
+          await User.update({ userlevel: 2, isPremiumUser: true }, { where: { id: userID } });
         }
+
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "Subscription gifted to user: " + userID + " from ip:" + req.ip,
+          level: 1
+        });
 
         res.json({ "type": "result", "result": "ok", "message": subscription });
       } catch (error) {
         console.error(error);
+
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
         res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to register subscription" });
       }
     }
     else {
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized access: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
+
+/*
+* @route POST /admin/cancelsubscription
+* @param {uuid} userID
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} subscription details
+*/
+router.post('/cancelusersubscription', async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try {
+        const { userID } = req.body;
+
+        if (!userID) {
+          return res.status(400).json({ "type": "result", "result": "fail", "message": "Missing userID" });
+        }
+
+        await Subscription.update(
+          { status: 'cancelled' },
+          {
+            where: {
+              userID,
+              expirationDate: {
+                [Op.gt]: new Date()
+              },
+              status: 'active'
+            }
+          }
+        );
+
+        await User.update({ isPremiumUser: false }, { where: { id: userID } });
+        
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "Subscription cancelled for user: " + userID + " from ip:" + req.ip,
+          level: 1
+        });
+        res.json({ "type": "result", "result": "ok", "message": "Subscription cancelled successfully" });
+      } catch (error) {
+        console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
+        res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to cancel subscription" });
+      }
+    }
+    else {
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized access: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
   });
 });
