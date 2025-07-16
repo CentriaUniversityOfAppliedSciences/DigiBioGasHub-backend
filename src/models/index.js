@@ -1,5 +1,5 @@
-import  User  from './user.js';
 import  Hub  from './hub.js';
+import  User  from './user.js';
 import  Company  from './company.js';
 import  Location  from './location.js';
 import  UserCompany  from './usercompany.js';
@@ -47,4 +47,4 @@ User.hasMany(BlogPost, { foreignKey: 'userID' });
 User.hasMany(Subscription, { foreignKey: 'userID' });
 Subscription.belongsTo(User, { foreignKey: 'userID' });
 
-export { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Openapi, Certificates, CompanyCertificates };
+export { Hub, User,  Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Openapi, Certificates, CompanyCertificates };

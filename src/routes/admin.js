@@ -673,7 +673,11 @@ router.post("/getallblogposts", async (req, res) => {
   adminTest(req.headers['authorization']).then(async (result) => {
     if (result[0]) {
       try {
-        const blogposts = await BlogPost.findAll();
+        const blogposts = await BlogPost.findAll(
+          {
+            attributes: { exclude: ['content'] }
+          }
+        );
         Logs.create({
           userID: result[1].id,
           action: req.url,
