@@ -1206,14 +1206,11 @@ app.post("/getoffers", async (req, res) => {
     .filter(key => filter[key] === true)
     .map(key => categoryToIdMap[key.toLowerCase()])
     .filter(id => id !== undefined);
-
-    const materialWhere = allowedTypeIds.length > 0 ? { type: allowedTypeIds } : {};
     
     const offers = await Offer.findAll({ 
       include: [Company, Location, Files,
       {
-        model: Material,
-        where: materialWhere,
+        model: Material
       }],
       attributes: {
         include: [
@@ -1242,8 +1239,11 @@ app.post("/getoffers", async (req, res) => {
         const tempLink = await minioconnector.getLink(client, folder, filename);
         offer.dataValues.fileLink = tempLink; // Add the temporary link to the offer
       }
+
+      const offerType = offer.Material?.type;
+      offer.dataValues.matchesFilter = allowedTypeIds.includes(offerType);
     }
-    res.json({"type":"result","result":"ok", "message":offers, "filtered": allowedTypeIds.length > 0});
+    res.json({"type":"result","result":"ok", "message":offers, "filtered": allowedTypeIds.length > 0, "appliedFilter": filter});
   }
   catch (error) {
     console.error(error);
