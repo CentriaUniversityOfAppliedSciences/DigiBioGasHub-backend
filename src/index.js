@@ -34,9 +34,34 @@ app.disable('x-powered-by');
 import sequelize from './models/database.js';
 import { Op } from 'sequelize';
 import minioconnector from './minioconnector.js';
-import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Openapi } from './models/index.js';
+import { Hub, User,  Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Openapi } from './models/index.js';
 
-sequelize.sync({ alter: false }).then(()=>{ // change alter:true if you want to update the database schema, fill in missing values in db manually, not for production
+sequelize.sync({ alter: false }).then(async ()=>{ // change alter:true if you want to update the database schema, fill in missing values in db manually, not for production
+    const hubCount = await Hub.count();
+    if (hubCount === 0) {
+        await Hub.create({
+            id: 1,
+            name: process.env.HUB_NAME,
+            type: 1,
+            origin: process.env.HUB_ORIGIN
+        });
+    }
+
+    const userCount = await User.count();
+    if (userCount === 0) {
+        var pass = await cryptic.hash(process.env.HUB_ADMIN_PASS);
+        await User.create({
+            username: process.env.HUB_ADMIN_USER,
+            password: pass,
+            name: "Admin",
+            email: "",
+            phone: "",
+            authMethod: "local",
+            userlevel: 99,
+            isPremiumUser: true,
+            hubID: 1
+        });
+    }
   //console.log("created");
 }).catch((e)=>{
   console.log(e);
@@ -1757,7 +1782,8 @@ app.post("/getlatest4blogposts", async (req, res) => {
         blogPostType: 1
       },
       limit: 4,
-      order: [['createdAt', 'DESC']]
+      order: [['createdAt', 'DESC']],
+      attributes: { exclude: ['content'] }
     });
     res.json({ "type": "result", "result": "ok", "message": blogposts });
   } catch (error) {
