@@ -268,6 +268,56 @@ app.post("/login", async (req, res) => {
 });
 
 /*
+* @route POST /language
+* @param {uuid} id 
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {string} success message
+*/
+app.post("/language", async (req, res) => {
+  try {
+    const token = req.headers['authorization'];
+
+    if (!token) {
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "No token provided", });
+    }
+
+    const [result, decoded] = await secTest(token);
+
+    if (!result || !decoded || !decoded.id) {
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "Invalid or expired token",
+      });
+    }
+
+    const userId = decoded.id;
+    const { language } = req.body;
+
+    if (!language) {
+      return res.status(400).json({ "type": "result", "result": "fail", "message": "Missing language parameter" });
+    }
+
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      return res.status(404).json({ "type": "result", "result": "fail", "message": "User not found",
+      });
+    }
+
+    user.language = language;
+    await user.save();
+
+    return res.status(200).json({ "type": "result", "result": "ok", "message": "Changed Successfully!",
+    });
+
+  } catch (error) {
+    console.error("Error updating language:", error);
+    return res.status(500).json({ "type": "result", "result": "fail", "message": "Internal server error",
+    });
+  }
+});
+
+/*
 * @route POST /createcompany
 * @param {string} name
 * @param {string} address
