@@ -1422,7 +1422,8 @@ app.post("/buyoffer", async (req, res) => {
         quality: offer.Material.quality,
       };
 
-      const buyerMsgHTML = buyerEmailTemplate({
+      const { html: buyerMsgHTML, buyerSubject } = await buyerEmailTemplate({
+        buyer,
         amount: body.amount,
         price: body.price,
         offer: offerData,
@@ -1431,7 +1432,7 @@ app.post("/buyoffer", async (req, res) => {
         company
       });
 
-      const sellerMsgHTML = sellerEmailTemplate({
+      const { html:sellerMsgHTML, sellerSubject } = await sellerEmailTemplate({
         buyer,
         amount: body.amount,
         price: body.price,
@@ -1440,11 +1441,11 @@ app.post("/buyoffer", async (req, res) => {
         company
       });
 
-      sendEmail(buyer.email, "Purchase Confirmation", buyerMsgHTML, (success, error) => {
+      sendEmail(buyer.email, buyerSubject, buyerMsgHTML, (success, error) => {
         if (!success) console.log("Buyer email error:", error);
       });
       
-      sendEmail(company.email, "Your Offer Was Bought", sellerMsgHTML, (success, error) => {
+      sendEmail(company.email, sellerSubject, sellerMsgHTML, (success, error) => {
         if (!success) console.log("Seller email error:", error);
       });
     }
@@ -1939,11 +1940,11 @@ app.post("/company-admin/invitemembers", async (req, res) => {
       invitedByName: body.invitedByName
     });
 
-    const invitationLink = process.env.SERVER_ADDRESS+`/join-company/${invitation.companyID}/${invitation.id}`;
+    const invitationLink = process.env.SERVER_ADDRESS + `/join-company/${invitation.companyID}/${invitation.id}`;
 
-    const emailContent = invitationEmailTemplate(body.invitedByName, body.companyName, invitationLink, expiryDate);
+    const { html: emailContent, subject } = await invitationEmailTemplate(user.id, body.invitedByName, body.companyName, invitationLink, expiryDate);
 
-    sendEmail(body.email, "Company Invitation", emailContent, (success, error) => {
+    sendEmail(body.email, subject, emailContent, (success, error) => {
       if (!success) {
         console.error("Failed to send invitation email:", error);
       }

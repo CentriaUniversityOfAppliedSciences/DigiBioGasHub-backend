@@ -1,4 +1,7 @@
-export default function buyerEmailTemplate({ amount, price, offer, material, isSoldOut, company }) {
+import i18n from "../i18n/config.js";
+import { User } from "../models/index.js";
+
+export default async function buyerEmailTemplate({ buyer, amount, price, offer, material, isSoldOut, company }) {
   const styles = {
     container: `
       font-family: Arial, sans-serif;
@@ -64,51 +67,61 @@ export default function buyerEmailTemplate({ amount, price, offer, material, isS
     `
   };
 
-  return `
-    <div style="${styles.container}">
+  const user = await User.findOne({
+    where: { email: buyer.email },
+    attributes: ['language'],
+  });
+
+  const userLanguage = user.language || 'en';
+  i18n.setLocale(userLanguage);
+
+  const buyerSubject = i18n.__('buyer.emailSubject');
+
+  const buyerHTMLTemplate = `
+   <div style="${styles.container}">
       <div style="${styles.header}">
-        <h1 style="margin: 0;">Purchase Confirmation</h1>
+        <h1 style="margin: 0;">${i18n.__('buyer.title')}</h1>
       </div>
 
       <div style="${styles.sectionPadding}">
-        <p style="${styles.thankYou}">Thank you for your purchase!</p>
+        <p style="${styles.thankYou}">${i18n.__('buyer.thankYou')}</p>
         <p style="${styles.purchaseInfo}">
-          You have bought <strong>${amount}</strong> ${offer.unit} at <strong>${price} €</strong> each from DigiBioGasHub.
+          ${i18n.__('buyer.bought')} <strong>${amount}</strong> ${offer.unit} ${i18n.__('buyer.atEach')} <strong>${price} €</strong> ${i18n.__('buyer.from')}
         </p>
         <p style="${styles.total}">
-          <strong>Total:</strong> ${(amount * price).toFixed(2)}€
+          <strong>${i18n.__('buyer.total')}:</strong> ${(amount * price).toFixed(2)}€
         </p>
 
-        <h2 style="${styles.offerDetailsHeader}">Offer Details</h2>
+        <h2 style="${styles.offerDetailsHeader}">${i18n.__('buyer.offerDetails')}</h2>
 
         <table style="${styles.table}">
           <tbody>
             <tr style="${styles.rowAlternate}">
-              <td style="${styles.tableCellHeader}">Offer Description</td>
+              <td style="${styles.tableCellHeader}">${i18n.__('buyer.offerDescription')}</td>
               <td style="${styles.tableCell}">${offer.description}</td>
             </tr>
             <tr>
-              <td style="${styles.tableCellHeader}">Cargo Type</td>
+              <td style="${styles.tableCellHeader}">${i18n.__('buyer.cargoType')}</td>
               <td style="${styles.tableCell}">${offer.cargoType}</td>
             </tr>
             <tr style="${styles.rowAlternate}">
-              <td style="${styles.tableCellHeader}">Unit</td>
+              <td style="${styles.tableCellHeader}">${i18n.__('buyer.unit')}</td>
               <td style="${styles.tableCell}">${offer.unit}</td>
             </tr>
             <tr>
-              <td style="${styles.tableCellHeader}">Material</td>
+              <td style="${styles.tableCellHeader}">${i18n.__('buyer.material')}</td>
               <td style="${styles.tableCell}">${material.name}</td>
             </tr>
             <tr style="${styles.rowAlternate}">
-              <td style="${styles.tableCellHeader}">Material Description</td>
+              <td style="${styles.tableCellHeader}">${i18n.__('buyer.materialDescription')}</td>
               <td style="${styles.tableCell}">${material.description}</td>
             </tr>
             <tr>
-              <td style="${styles.tableCellHeader}">Material Type</td>
+              <td style="${styles.tableCellHeader}">${i18n.__('buyer.materialType')}</td>
               <td style="${styles.tableCell}">${material.type}</td>
             </tr>
             <tr style="${styles.rowAlternate}">
-              <td style="${styles.tableCellHeader}">Material Quality</td>
+              <td style="${styles.tableCellHeader}">${i18n.__('buyer.materialQuality')}</td>
               <td style="${styles.tableCell}">${material.quality}</td>
             </tr>
           </tbody>
@@ -116,27 +129,30 @@ export default function buyerEmailTemplate({ amount, price, offer, material, isS
 
         ${
           isSoldOut
-            ? `<p style="${styles.soldOutText}"><strong>The offer is now sold out!</strong></p>`
-            : `<p style="${styles.availableText}">Remaining stock is still available.</p>`
-        }
+            ? `<p style="${styles.soldOutText}"><strong>${i18n.__('buyer.soldOut')}</strong></p>`
+            : `<p style="${styles.availableText}">${i18n.__('buyer.available')}</p>`
+          }
 
         <hr style="${styles.hr}" />
 
-        <h3>Seller Information</h3>
-        <p><strong>Name:</strong> ${company.name}</p>
-        <p><strong>Email:</strong> ${company.email}</p>
-        <p><strong>Phone:</strong> ${company.phone}</p>
-        <p><strong>Address:</strong> ${company.address}</p>
-        <p><strong>Location:</strong> ${company.city}, ${company.zipcode}</p>
+        <h3>${i18n.__('buyer.sellerInfo')}</h3>
+        <p><strong>${i18n.__('buyer.name')}:</strong> ${company.name}</p>
+        <p><strong>${i18n.__('buyer.email')}:</strong> ${company.email}</p>
+        <p><strong>${i18n.__('buyer.phone')}:</strong> ${company.phone}</p>
+        <p><strong>${i18n.__('buyer.address')}:</strong> ${company.address}</p>
+        <p><strong>${i18n.__('buyer.location')}:</strong> ${company.city}, ${company.zipcode}</p>
 
         <div style="${styles.buttonContainer}">
-          <a href="#" style="${styles.button}">View Offer Details</a>
+          <a href="#" style="${styles.button}">${i18n.__('buyer.viewDetails')}</a>
         </div>
       </div>
 
       <div style="${styles.footer}">
-        <p>&copy; ${new Date().getFullYear()} DigiBioGasHub. All rights reserved.</p>
+        <p>&copy; ${new Date().getFullYear()} DigiBioGasHub. ${i18n.__('buyer.rights')}</p>
       </div>
     </div>
   `;
+
+  return { html: buyerHTMLTemplate, buyerSubject };
+
 }
