@@ -29,7 +29,7 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
     const session = event.data.object;
     const userID = session.metadata.userID;
     const monthsBought = Number(session?.metadata?.months ?? 0);
-    console.log("session", session)
+    //console.log("session", session)
 
     if (!userID || !monthsBought) {
       console.warn('Missing metadata on session', session.id);

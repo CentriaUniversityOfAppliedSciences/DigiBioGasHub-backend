@@ -17,13 +17,13 @@ import sendEmail from './email/emailService.js';
 import buyerEmailTemplate from './email/buyerEmailTemplate.js';
 import sellerEmailTemplate from './email/sellerEmailTemplate.js';
 import invitationEmailTemplate from './email/invitationEmailTemplate.js';
-import { OFFER_UNITS, OFFER_CARGOTYPE, MATERIAL_TYPE} from './constants/constants.js';
+import { OFFER_UNITS, OFFER_CARGOTYPE, MATERIAL_TYPE } from './constants/constants.js';
 import logisticsRouter from './routes/logistics.js';
 import adminRouter from './routes/admin.js';
 import companyRouter from './routes/company.js';
 import subscriptionRouter from './routes/subscription.js';
 import checkoutRouter from './routes/checkout.js';
-import stripewebhookRouter from './routes/srtipewebhook.js';
+import stripewebhookRouter from './routes/stripewebhook.js';
 import apikeyRouter from './routes/apikey.js';
 import { getCoords, secTest, adminTest } from './functions/utils.js';
 app.use(morgan('combined'));
@@ -1010,11 +1010,24 @@ app.post("/createoffer", async (req, res) => {
         }
         if (body.address != null && body.address != undefined && body.city != null && body.city != undefined && body.zipcode != null && body.zipcode != undefined){
           const coords = await getCoords(body.address, body.zipcode, body.city);
-          if (coords.data != null && coords.data != undefined){
+          if (coords.data != null && coords.data != undefined && coords.data.lat != null && coords.data.lng != null){
             const location = await Location.create({
               name: offer.id,
               latitude: coords.data.lat,
               longitude: coords.data.lng,
+              type: 2,
+              companyID: body.companyID,
+              parent: offer.id,
+              address: body.address,
+              zipcode: body.zipcode,
+              city: body.city
+            });
+          }
+          else{
+            const location = await Location.create({
+              name: offer.id,
+              latitude: 0.0,
+              longitude: 0.0,
               type: 2,
               companyID: body.companyID,
               parent: offer.id,
@@ -1134,11 +1147,28 @@ app.post("/updateoffer", async (req, res) => {
           if (body.oldLocation == true){
             if (body.address != null && body.address != undefined && body.city != null && body.city != undefined && body.zipcode != null && body.zipcode != undefined){
               const coords = await getCoords(body.address, body.zipcode, body.city);
-              if (coords.data != null && coords.data != undefined){
+              if (coords.data != null && coords.data != undefined && coords.data.lat != null && coords.data.lng != null){
                 await Location.update({
                   name: body.id,
                   latitude: coords.data.lat,
                   longitude: coords.data.lng,
+                  type: 2,
+                  companyID: body.companyID,
+                  parent: body.id,
+                  address: body.address,
+                  zipcode: body.zipcode,
+                  city: body.city
+                },{
+                  where:{
+                    id: body.locationID
+                  }
+                });
+              }
+              else{
+                await Location.update({
+                  name: body.id,
+                  latitude: 0.0,
+                  longitude: 0.0,
                   type: 2,
                   companyID: body.companyID,
                   parent: body.id,
@@ -1156,11 +1186,31 @@ app.post("/updateoffer", async (req, res) => {
           else{
             if (body.address != null && body.address != undefined && body.city != null && body.city != undefined && body.zipcode != null && body.zipcode != undefined){
               const coords = await getCoords(body.address, body.zipcode, body.city);
-              if (coords.data != null && coords.data != undefined){
+              if (coords.data != null && coords.data != undefined && coords.data.lat != null && coords.data.lng != null){
                 await Location.create({
                   name: body.id,
                   latitude: coords.data.lat,
                   longitude: coords.data.lng,
+                  type: 2,
+                  companyID: body.companyID,
+                  parent: body.id,
+                  address: body.address,
+                  zipcode: body.zipcode,
+                  city: body.city
+                });
+                await Offer.update({
+                  locationID: location.id
+                },{
+                  where:{
+                    id: body.id
+                  }
+                });
+              }
+              else{
+                await Location.create({
+                  name: body.id,
+                  latitude: 0.0,
+                  longitude: 0.0,
                   type: 2,
                   companyID: body.companyID,
                   parent: body.id,

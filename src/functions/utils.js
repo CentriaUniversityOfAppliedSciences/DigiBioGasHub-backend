@@ -24,7 +24,7 @@ function getCoords(address, zipcode, city){
 					"api-key": process.env.MML_API_KEY
 				}
 			}).then(async (x) => {
-				console.log(x);
+				//console.log(x);
 				if (x.status == 200 && x.data != undefined && x.data.features != undefined && x.data.features.length > 0 && x.data.features[0].geometry != undefined) {
 					const result = x.data.features[0].geometry.coordinates;//proj4("EPSG:3067", "EPSG:4326", x.data.features[0].geometry.coordinates);
 					const obj = { lat: result[1], lng: result[0] };
@@ -41,7 +41,7 @@ function getCoords(address, zipcode, city){
 								"api-key": process.env.MML_API_KEY
 							}
 						}).then(async (x) => {
-							console.log(x);
+							//console.log(x);
 							if (x.status == 200 && x.data != undefined && x.data.features != undefined && x.data.features.length > 0 && x.data.features[0].geometry != undefined) {
 								const result = x.data.features[0].geometry.coordinates;//proj4("EPSG:3067", "EPSG:4326", x.data.features[0].geometry.coordinates);
 								const obj = { lat: result[1], lng: result[0] };
