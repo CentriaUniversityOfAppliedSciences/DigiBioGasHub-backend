@@ -34,7 +34,7 @@ app.disable('x-powered-by');
 import sequelize from './models/database.js';
 import { Op } from 'sequelize';
 import minioconnector from './minioconnector.js';
-import { Hub, User,  Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Openapi } from './models/index.js';
+import { Hub, User,  Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Openapi, OfferCertificates, CompanyCertificates } from './models/index.js';
 
 sequelize.sync({ alter: false }).then(async ()=>{ // change alter:true if you want to update the database schema, fill in missing values in db manually, not for production
     const hubCount = await Hub.count();
@@ -1007,6 +1007,14 @@ app.post("/createoffer", async (req, res) => {
             throw new Error('Failed to upload file to MinIO');
           }
 
+        }
+        if (body.certificates != null && body.certificates != undefined && body.certificates.length > 0){
+          for (const certificate of body.certificates){
+            await OfferCertificates.create({
+              offerId: offer.id,
+              certificateId: certificate
+            });
+          }
         }
         if (body.address != null && body.address != undefined && body.city != null && body.city != undefined && body.zipcode != null && body.zipcode != undefined){
           const coords = await getCoords(body.address, body.zipcode, body.city);
@@ -2106,6 +2114,43 @@ app.post("/invitations/accept", async (req, res) => {
     res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to accept invitation" });
   }
 });
+
+
+/* @route POST /getOfferCertificate
+* @param {uuid} offerID
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} certificate
+*/
+app.post("/getOfferCertificate", async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  try {
+    if (result == true) {
+      var body = req.body;
+      const cert = await OfferCertificates.findAll({
+        where: {
+          offerId: body.offerID
+        },
+        include:[CompanyCertificates]
+      });
+      if (!cert) {
+        return res.status(404).json({ "type": "result", "result": "fail", "message": "Certificates not found" });
+      } 
+
+      // If certificate is found, return it
+      return res.json({ "type": "result", "result": "ok", "message": cert });
+    }
+  } catch (error) {
+    console.error("Error fetching offer certificate:", error);
+    res.status(500).json({ "type": "result", "result": "fail", "message": "Unable to fetch offer certificate" });
+  }
+});
+
+
+
+
 
 
 
