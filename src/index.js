@@ -29,6 +29,7 @@ import { getCoords, secTest, adminTest } from './functions/utils.js';
 import sharp from 'sharp';
 import * as rfs from 'rotating-file-stream';
 import path from 'path';
+import './scheduler/subscriptionExpJob.js';
 var accessLogStream = rfs.createStream('access.log', {
   interval: '1d', // rotate daily
   path: path.join(import.meta.dirname, 'log')
