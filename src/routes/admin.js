@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { adminTest } from '../functions/utils.js'; 
 const router = express.Router();
 import minioconnector from '../minioconnector.js';
+import sequelize from '../models/database.js';
 
 
 /* update user with admin rights */
@@ -101,6 +102,20 @@ router.post("/getlimitedusers", async (req, res) => {
     }
 
     const users = await User.findAll({
+      include: [{ 
+        model: Subscription, 
+        where :{ 
+          status: "active", 
+          expirationDate: { [Op.eq]: sequelize.literal(`(
+            SELECT MAX("expirationDate")
+            FROM "Subscriptions"
+            WHERE "Subscriptions"."userID" = "User"."id"
+              AND "Subscriptions"."status" = 'active'
+            )`) 
+          } 
+        },
+        required: false 
+      }],
       offset: page * limit,
       limit: limit,
       attributes: { exclude: ["password", "authMethod", "language"] },

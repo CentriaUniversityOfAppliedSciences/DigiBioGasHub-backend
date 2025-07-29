@@ -26,7 +26,15 @@ import checkoutRouter from './routes/checkout.js';
 import stripewebhookRouter from './routes/stripewebhook.js';
 import apikeyRouter from './routes/apikey.js';
 import { getCoords, secTest, adminTest } from './functions/utils.js';
-app.use(morgan('combined'));
+import sharp from 'sharp';
+import * as rfs from 'rotating-file-stream';
+import path from 'path';
+var accessLogStream = rfs.createStream('access.log', {
+  interval: '1d', // rotate daily
+  path: path.join(import.meta.dirname, 'log')
+})
+
+app.use(morgan('combined', { stream: accessLogStream }));
 app.use(helmet({
 
 }));
@@ -988,12 +996,13 @@ app.post("/createoffer", async (req, res) => {
             const mimeType = matches[1]; // Extract MIME type
             const base64Data = matches[2]; // Extract base64 data
             const buffer = Buffer.from(base64Data, 'base64'); // Convert base64 to buffer
-
+            const newImage = await sharp(buffer).resize(800, 600, { fit: sharp.fit.inside, withoutEnlargement: true}).toBuffer(); // Resize the image to 800x600
+              
             const folder = 'offers'; // Define the bucket/folder name
             const filename = `${offer.id}_${body.imageName}`; // Generate a unique filename
 
             // Upload the file to MinIO
-            await minioconnector.insert(client, buffer, filename, folder);
+            await minioconnector.insert(client, newImage, filename, folder);
                     
             // Save the reference to the file in the database
             const file = await Files.create({
