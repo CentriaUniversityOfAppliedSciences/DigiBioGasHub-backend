@@ -90,7 +90,8 @@ type:{
 type:{
     0: unpublished
     1: published
-    2: draft  
+    2: draft
+    3: file  
 }
 ```
 

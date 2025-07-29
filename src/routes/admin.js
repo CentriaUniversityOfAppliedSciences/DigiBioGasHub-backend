@@ -6,6 +6,8 @@ import { adminTest } from '../functions/utils.js';
 const router = express.Router();
 import minioconnector from '../minioconnector.js';
 import sequelize from '../models/database.js';
+import multer from 'multer';
+const upload = multer();
 
 
 /* update user with admin rights */
@@ -738,7 +740,6 @@ router.post("/createblogpost", async (req, res) => {
     if (result[0]) {
       try{
         var body = req.body;
-        console.log(body);
         const blogpost = await BlogPost.create({
           title: body.title,
           content: body.content,
@@ -752,6 +753,73 @@ router.post("/createblogpost", async (req, res) => {
           text: "Blog post created: " + blogpost.postID + " from ip:" + req.ip,
           level: 1
         });
+        res.json({"type":"result","result":"ok","message":blogpost});
+      }
+      catch (error) {
+        console.error(error);
+        Logs.create({
+          userID: null,
+          action: req.url,
+          text: "error: " + error + " from ip:" + req.ip,
+          level: 3
+        });
+        res.status(500).json({"type":"result","result":"fail","message": "unable to  create blog post"});
+      }
+    }
+    else{
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
+
+/*
+* @route POST /admin/createblogpostfile
+* @param {string} title
+* @param {text} content
+* @param {string} image (optional)
+* @param {uuid} userID
+* @param {integer} blogPostType
+*/
+router.post("/createblogpostfile", upload.single('file'), async (req, res) => {
+  adminTest(req.headers['authorization']).then(async (result) => {
+    if (result[0]) {
+      try{
+        var body = req.body;
+        var file = req.file;
+        const blogpost = await BlogPost.create({
+          title: body.title,
+          content: "",
+          image: body.image,
+          userID: result[1].id,
+          blogPostType: 3
+        });
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "Blog post file created: " + blogpost.postID + " from ip:" + req.ip,
+          level: 1
+        });
+        if (file != null && file != undefined) {
+          const client = await minioconnector.createConnection();
+          const folder = "blogposts";
+          const filename = blogpost.postID + ".pdf";
+          const buffer = Buffer.from(file.buffer);
+          await minioconnector.insert(client, buffer, filename, folder);
+          minioconnector.closeConnection(client);
+          const bb = await BlogPost.update({
+            content: folder + "/" + filename
+          }, {
+            where: {
+              postID: blogpost.postID
+            }
+          });
+        }
         res.json({"type":"result","result":"ok","message":blogpost});
       }
       catch (error) {

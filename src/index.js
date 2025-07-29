@@ -6,6 +6,7 @@
 import express from 'express';
 var app = express();
 var port = process.env.SERVER_PORT;
+import multer from 'multer';
 import axios from 'axios';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -1873,7 +1874,13 @@ app.post("/getblogpost", async (req, res) => {
       }
     });
     if (blogpost != null) {
-
+      if (blogpost.dataValues.blogPostType === 3) {
+        const filePath = blogpost.content;
+        const [folder, filename] = filePath.split('/'); // Split into folder and filename
+        const client = await minioconnector.createConnection();
+        const tempLink = await minioconnector.getLink(client, folder, filename);
+        blogpost.dataValues.link = tempLink; // Add the temporary link to the blog post
+      }
       res.json({ "type": "result", "result": "ok", "message": blogpost });
 
     } else {
@@ -1923,7 +1930,10 @@ app.post("/getallpublishedblogposts", async (req, res) => {
   try {
     const blogposts = await BlogPost.findAll({
       where: {
-        blogPostType: 1
+        [Op.or]: [
+          { blogPostType: 1 },
+          { blogPostType: 3 }
+        ]
       }
     });
     res.json({ "type": "result", "result": "ok", "message": blogposts });
