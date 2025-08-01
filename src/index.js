@@ -1344,8 +1344,6 @@ app.post("/getoffers", async (req, res) => {
       Object.entries(MATERIAL_TYPE).map(([id, name]) => [name.toLowerCase().replace(/\s+/g, ''), parseInt(id)])
     );
 
-    console.log("categorytiidmap" , categoryToIdMap);
-
     const allowedTypeIds = Object.keys(filter)
     .filter(key => filter[key] === true)
     .map(key => categoryToIdMap[key.toLowerCase()])
@@ -1905,7 +1903,10 @@ app.post("/getlatest4blogposts", async (req, res) => {
   try {
     const blogposts = await BlogPost.findAll({
       where: {
-        blogPostType: 1
+        [Op.or]: [
+          { blogPostType: 1 },
+          { blogPostType: 3 }
+        ]
       },
       limit: 4,
       order: [['createdAt', 'DESC']],
