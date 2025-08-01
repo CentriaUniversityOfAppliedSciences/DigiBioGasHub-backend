@@ -7,6 +7,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const router = express.Router();
 
 router.post('/', express.raw({ type: 'application/json' }), async (req, res) => {
+    if (!process.env.USE_PAYMENT || process.env.USE_PAYMENT !== 'true') {
+        return res.status(503).json({ error: 'Payment service is currently unavailable' });
+    }
+
   const sig = req.headers['stripe-signature'];
 
   let event;

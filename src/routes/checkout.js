@@ -14,7 +14,9 @@ const priceMap = {
 };
 
 router.post('/create-checkout-session', async (req, res) => {
-
+    if (!process.env.USE_PAYMENT || process.env.USE_PAYMENT !== 'true') {
+        return res.status(503).json({ error: 'Payment service is currently unavailable' });
+    }
     const token = req.headers['authorization'];
     var [result, decoded] = await secTest(token);
 

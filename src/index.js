@@ -1406,8 +1406,6 @@ app.post("/getuseroffers", async (req, res) => {
     var body = req.body;
     var token = req.headers['authorization'];
     var [result,decoded] = await secTest(token);
-    console.log("decoded",decoded);
-    console.log("body",body);
     if (result == true && decoded.id == body.id){
       const offers = await Offer.findAll({
         where:{

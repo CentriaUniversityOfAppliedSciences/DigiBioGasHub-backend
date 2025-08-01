@@ -14,6 +14,9 @@ const router = express.Router();
 */
 
 router.get('/me', async (req, res) => {
+    if (!process.env.USE_PAYMENT || process.env.USE_PAYMENT !== 'true') {
+        return res.status(503).json({ error: 'Payment service is currently unavailable' });
+    }
     var token = req.headers['authorization'];
     var [result, decoded] = await secTest(token);
 
@@ -57,6 +60,9 @@ router.get('/me', async (req, res) => {
   * @key message @value if fail {string} error message, if ok {string} success message
 */
 router.post('/cancel', async (req, res) => {
+    if (!process.env.USE_PAYMENT || process.env.USE_PAYMENT !== 'true') {
+        return res.status(503).json({ error: 'Payment service is currently unavailable' });
+    }
     var token = req.headers['authorization'];
     var [result, decoded] = await secTest(token);
 
