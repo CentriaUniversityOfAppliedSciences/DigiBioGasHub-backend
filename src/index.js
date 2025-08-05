@@ -379,7 +379,10 @@ app.post("/createcompany", async (req, res) => {
           longitude: coords.data.lng,
           type: 1,
           companyID: company.id,
-          parent: null
+          parent: null,
+          address: body.address,
+          city: body.city,
+          zipcode: body.zipcode
         });
       }
 
