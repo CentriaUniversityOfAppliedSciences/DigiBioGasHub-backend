@@ -18,6 +18,7 @@ import sendEmail from './email/emailService.js';
 import buyerEmailTemplate from './email/buyerEmailTemplate.js';
 import sellerEmailTemplate from './email/sellerEmailTemplate.js';
 import invitationEmailTemplate from './email/invitationEmailTemplate.js';
+import companyApprovalReqTemplate from './email/companyApprovalReqTemplate.js';
 import { OFFER_UNITS, OFFER_CARGOTYPE, MATERIAL_TYPE } from './constants/constants.js';
 import logisticsRouter from './routes/logistics.js';
 import adminRouter from './routes/admin.js';
@@ -345,10 +346,10 @@ app.post("/language", async (req, res) => {
 */
 
 app.post("/createcompany", async (req, res) => {
-  try{
+  try {
     const token = req.headers['authorization'];
-    var [result,decoded] = await secTest(token);
-    if (result == true && decoded.id == req.body.userID){
+    var [result, decoded] = await secTest(token);
+    if (result == true && decoded.id == req.body.userID) {
       var body = req.body;
       const company = await Company.create({
         name: body.name,
@@ -361,37 +362,60 @@ app.post("/createcompany", async (req, res) => {
         companyStatus: "0",
         hubID: "1",
         web: body.web
-      }).then((company) => { 
-        UserCompany.create({
-          userID: body.userID,
-          companyID: company.id,
-          userlevel: 23,
-          CompanyId: company.id
-       }).then((usercompany) => {
-        getCoords(body.address, body.zipcode, body.city).then((coords) => {
-          if (coords != null && coords != undefined){
-            Location.create({
-              name: body.name,
-              latitude: coords.data.lat,
-              longitude: coords.data.lng,
-              type: 1,
-              companyID: company.id,
-              parent: null
-            });
-          }
-          
-        });
-        res.json({"type":"result","result":"ok","message":company});
-        Logs.create({
-          userID: decoded.id,
-          action: req.url,
-          text: "company create success, for company " + company.id + " from ip:" + req.ip,
-          level: 1
-        });
-       });
       });
+
+      await UserCompany.create({
+        userID: body.userID,
+        companyID: company.id,
+        userlevel: 23,
+        CompanyId: company.id
+      });
+
+      const coords = await getCoords(body.address, body.zipcode, body.city);
+      if (coords?.data?.lat && coords?.data?.lng) {
+        await Location.create({
+          name: body.name,
+          latitude: coords.data.lat,
+          longitude: coords.data.lng,
+          type: 1,
+          companyID: company.id,
+          parent: null
+        });
+      }
+
+      res.json({ "type": "result", "result": "ok", "message": company });
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "company create success, for company " + company.id + " from ip:" + req.ip,
+        level: 1
+      });
+
+      const superAdmins = await User.findAll({
+        where: { userlevel: 99 },
+        attributes: ['email', 'language']
+      });
+
+      for (const admin of superAdmins) {
+        const { subject, html } = companyApprovalReqTemplate({
+          language: admin.language || 'en',
+          company,
+          url: process.env.FRONTEND_URL + `/admin/manage-companies`
+        });
+
+        await new Promise((resolve) => {
+          sendEmail(admin.email, subject, html, (success, error) => {
+            if (!success) {
+              console.error("Super admin email error:", error);
+            }
+            resolve();
+          });
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
     }
-    else{
+    else {
       res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
       Logs.create({
         userID: null,
@@ -403,7 +427,7 @@ app.post("/createcompany", async (req, res) => {
   }
   catch (error) {
     console.error(error);
-    res.status(500).json({"type":"result","result":"fail","message": "cannot create company"});
+    res.status(500).json({ "type": "result", "result": "fail", "message": "cannot create company" });
     Logs.create({
       userID: null,
       action: req.url,

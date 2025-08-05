@@ -56,5 +56,11 @@
     "location": "Sijainti",
     "viewDetails": "Näytä tarjous",
     "rights": "Kaikki oikeudet pidätetään."
+  },
+  "companyApproval": {
+    "subject": "Uusi yrityksen hyväksyntäpyyntö",
+    "message": "Yritys \"{{companyName}}\" on pyytänyt liittymistä alustalle. Tarkista ja hyväksy.",
+    "button": "Tarkastele yritystä",
+    "rights": "Kaikki oikeudet pidätetään."
   }
 }

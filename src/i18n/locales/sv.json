@@ -56,5 +56,11 @@
     "location": "Plats",
     "viewDetails": "Visa erbjudandedetaljer",
     "rights": "Alla rättigheter förbehålls."
+  },
+  "companyApproval": {
+    "subject": "Begäran om företagsgodkännande",
+    "message": "Företaget \"{{companyName}}\" har begärt att få gå med på plattformen. Vänligen granska och godkänn.",
+    "button": "Granska företag",
+    "rights": "Alla rättigheter förbehållna."
   }
 }

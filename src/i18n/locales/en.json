@@ -56,5 +56,11 @@
     "location": "Location",
     "viewDetails": "View Offer Details",
     "rights": "All rights reserved."
+  },
+  "companyApproval": {
+    "subject": "New Company Approval Request",
+    "message": "The company \"{{companyName}}\" has requested to join the platform. Please review and approve.",
+    "button": "Review Company",
+    "rights": "All rights reserved."
   }
 }
