@@ -1575,23 +1575,27 @@ app.post("/offercontracts", async (req, res) => {
 */
 app.post("/contracts", async (req, res) => {
   var token = req.headers['authorization'];
-  var [result,decoded] = await secTest(token);
-  try{
-    if (result == true){
+  var [result, decoded] = await secTest(token);
+  try {
+    if (result == true) {
       var body = req.body;
       const contracts = await Contract.findAll({
         include: [
           {
-            model: Offer, 
-            include:[
-              { model: User, attributes: ["id", "name", "email", "phone"] },
+            model: Offer,
+            include: [
+              { model: User, attributes: ["id", "name", "email", "phone", "isPremiumUser"] },
               { model: Company, attributes: ["id", "name", "address", "zipcode", "city"] }
             ]
           },
-          User, Company
-          
+          {
+            model: User, attributes: ["id", "name", "email", "phone", "isPremiumUser"]
+          },
+          {
+            model: Company, attributes: ["id", "name", "address", "zipcode", "city"]
+          }
         ],
-        where:{
+        where: {
           buyer: decoded.id
         }
       });
