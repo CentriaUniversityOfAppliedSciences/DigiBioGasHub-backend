@@ -1385,4 +1385,66 @@ router.post('/cancelusersubscription', async (req, res) => {
   });
 });
 
+
+/*
+* @route POST /admin/deleteuser
+* @param {uuid} id
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} user
+*/
+
+router.delete("/deleteuser", async (req, res) => {
+  let tempID = null;
+  
+    adminTest(req.headers['authorization']).then(async (result) => {
+      
+      if (result[0]) {
+        try{
+        var body = req.body;
+         
+        Logs.create({
+          userID: result[1].id,
+          action: req.url,
+          text: "superadmin user delete request, for user " + result[1].id + " from ip:" + req.ip,
+          level: 1
+        });
+        const deletedUser = await User.update({
+          userlevel: 0,
+          isPremiumUser: false,
+          name: "deleted",
+          email: "",
+          phone: "",
+          address: "",
+          authMethod: "local",
+          password: "zCAFTcs6DduMCcXqTQYa",
+          username:"deleted_"+new Date().getTime(),
+          updatedAt: new Date()
+        }, {
+          where: {
+            id: body.id
+          }
+        });
+    
+    res.json({"type":"result","result":"ok","message":deletedUser});
+    }
+    catch (error) {
+      console.error(error);
+      res.status(500).json({"type":"result","result":"fail","message": "cannot delete user"});
+    }
+  }
+    else {
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "unauthorized access: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+  });
+});
+
+
 export default router;

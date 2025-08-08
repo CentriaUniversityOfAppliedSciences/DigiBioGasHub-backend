@@ -809,50 +809,34 @@ app.delete("/deleteuser", async (req, res) => {
   let tempID = null;
   try{
     var body = req.body;
-    const user = await User.destroy({
-      where:{
-        id: body.id
-      }
-    }).then(()  => {
-      UserCompany.findAll({
-        where:{
-          userID: body.id
-        }
-      }).then((usercompanies) => {
-        usercompanies.forEach((usercompany) => {
-          tempID = usercompany.dataValues.id;
-          UserCompany.destroy({
-            where:{
-              userID: body.id
-            }
-          });
-          if (tempID != null){
-            const comp = UserCompany.findOne({
-              where:{
-                id: tempID
-              }
-            });
-            if (comp){
-              UserCompany.update({
-                userlevel: 23,
-                where:{
-                  companyID: comp.dataValues.companyID
-                }
-              })
-            }
-            else{
-              Company.destroy({
-                where:{
-                  id: tempID
-                }
-              });
-            }
-          }
-        });
-      });
+    const token = req.headers['authorization'];
+    var [result,decoded] = await secTest(token);
+    if (result == false || decoded.id != body.id){
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
-    );
-    res.json({"type":"result","result":"ok","message":user});
+    Logs.create({
+      userID: decoded.id,
+      action: req.url,
+      text: "user delete request, for user " + decoded.id + " from ip:" + req.ip,
+      level: 1
+    });
+    const deletedUser = await User.update({
+      userlevel: 0,
+      isPremiumUser: false,
+      username:"deleted_"+new Date().getTime(),
+      name: "deleted",
+      email: "",
+      phone: "",
+      address: "",
+      password: "zCAFTcs6DduMCcXqTQYa",
+      updatedAt: new Date()
+    }, {
+      where: {
+        id: decoded.id
+      }
+    });
+    
+    res.json({"type":"result","result":"ok","message":deletedUser});
   }
   catch (error) {
     console.error(error);
