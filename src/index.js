@@ -1440,6 +1440,11 @@ app.post("/buyoffer", async (req, res) => {
   try {
     const token = req.headers['authorization'];
     const [result, decoded] = await secTest(token);
+
+    if (!result) {
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+    }
+
     const body = req.body;
 
     const offer = await Offer.findOne({
