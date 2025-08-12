@@ -763,37 +763,35 @@ app.post("/getusername", async (req, res) => {
   * @key result @value ["ok", "fail"]
   * @key message @value updated user
 */
-
 app.post("/updateuser", async (req, res) => {
-  try{
-    var body = req.body;
+  try {
+
     const token = req.headers['authorization'];
-    var [result,decoded] = await secTest(token);
-    if (result == true){
+    var [result, decoded] = await secTest(token);
+    if (result) {
+      var body = req.body;
       const user = await User.update({
         name: body.name,
         email: body.email,
         phone: body.phone,
         address: body.address,
-      },{
-        where:{
+      }, {
+        where: {
           id: decoded.id
         }
       });
-      res.json({"type":"result","result":"ok","message":user});
+      res.json({ "type": "result", "result": "ok", "message": user });
     }
-    else{
+    else {
       res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
-    
+
   }
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot update user"});
   }
 });
-
-
 
 
 /*
