@@ -1962,6 +1962,47 @@ app.post("/getallpublishedblogposts", async (req, res) => {
 }
 );
 
+/*
+* @route POST /blogs/myblogs
+* @param {uuid} userid
+* @param {number} type - 0: unpublished, 1: published, 2: draft, 3: file
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {json} blog posts
+*/
+app.post("/blogs/myblogs", async (req, res) => {
+
+  const token = req.headers['authorization'];
+  var [result, decoded] = await secTest(token);
+
+  if (!result) {
+    return res.status(401).json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+  }
+
+  try {
+
+    const { type } = req.body;
+
+    if (type === undefined) {
+      return res.status(400).json({ "type": "result", "result": "fail", "message": "Missing type parameter" });
+    }
+
+    const blogposts = await BlogPost.findAll({
+      where: {
+        userID: decoded.id,
+        blogPostType: type  
+      },
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json({ "type": "result", "result": "ok", "message": blogposts });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ "type": "result", "result": "fail", "message": "unable to get blog posts" });
+  }
+});
+
 
 /*
 * @route POST /invitemembers
