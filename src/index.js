@@ -26,6 +26,7 @@ import companyRouter from './routes/company.js';
 import subscriptionRouter from './routes/subscription.js';
 import checkoutRouter from './routes/checkout.js';
 import stripewebhookRouter from './routes/stripewebhook.js';
+import blogRouter from './routes/blog.js';
 import apikeyRouter from './routes/apikey.js';
 import { getCoords, secTest, adminTest } from './functions/utils.js';
 import sharp from 'sharp';
@@ -2238,6 +2239,7 @@ app.use('/company', companyRouter);
 app.use ('/apikey', apikeyRouter);
 app.use('/subscription', subscriptionRouter);
 app.use('/payment', checkoutRouter);
+app.use('/blog', blogRouter);
 
 
 //these must be at the bottom but before listen !!!!
