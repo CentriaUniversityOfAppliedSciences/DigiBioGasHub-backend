@@ -789,57 +789,6 @@ router.post("/getallblogposts", async (req, res) => {
 
 
 /*
-* @route POST /admin/createblogpost
-* @param {string} title
-* @param {text} content
-* @param {string} image (optional)
-* @param {uuid} userID
-* @param {integer} blogPostType
-*/
-router.post("/createblogpost", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if (result[0]) {
-      try{
-        var body = req.body;
-        const blogpost = await BlogPost.create({
-          title: body.title,
-          content: body.content,
-          image: body.image,
-          userID: body.userID,
-          blogPostType: body.blogPostType
-        });
-        Logs.create({
-          userID: result[1].id,
-          action: req.url,
-          text: "Blog post created: " + blogpost.postID + " from ip:" + req.ip,
-          level: 1
-        });
-        res.json({"type":"result","result":"ok","message":blogpost});
-      }
-      catch (error) {
-        console.error(error);
-        Logs.create({
-          userID: null,
-          action: req.url,
-          text: "error: " + error + " from ip:" + req.ip,
-          level: 3
-        });
-        res.status(500).json({"type":"result","result":"fail","message": "unable to  create blog post"});
-      }
-    }
-    else{
-      Logs.create({
-        userID: null,
-        action: req.url,
-        text: "unauthorized: " + req.url + " from ip:" + req.ip,
-        level: 2
-      });
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
-    }
-  });
-});
-
-/*
 * @route POST /admin/createblogpostfile
 * @param {string} title
 * @param {text} content
@@ -907,73 +856,6 @@ router.post("/createblogpostfile", upload.single('file'), async (req, res) => {
 });
 
 
-/*
-* @route POST /admin/updateblogpost
-* @param {uuid} postID
-* @param {string} title
-* @param {text} content 
-* @param {string} image
-* @param {integer} blogPostType
-* @return {json} 
-  * @key type @value result
-  * @key result @value ["ok", "fail"]
-  * @key message @value if fail {string} error message, if ok {json} updated blog post
-*/
-router.post("/updateblogpost", async (req, res) => {
-  adminTest(req.headers['authorization']).then(async (result) => {
-    if (result[0]) {
-      try {
-        var body = req.body;
-        const [numberOfAffectedRows, blogpost]  = await BlogPost.update({
-          title: body.title,
-          content: body.content,
-          image: body.image,
-          blogPostType: body.blogPostType
-        }, {
-          where: {
-            postID: body.postID
-          },
-          returning: true
-        });
-        if (numberOfAffectedRows > 0) {
-          Logs.create({
-            userID: result[1].id,
-            action: req.url,
-            text: "Blog post updated: " + body.postID + " from ip:" + req.ip,
-            level: 1
-          });
-          res.json({ "type": "result", "result": "ok", "message": blogpost[0] });
-        } else {
-          Logs.create({
-            userID: result[1].id,
-            action: req.url,
-            text: "Blog post not found: " + body.postID + " from ip:" + req.ip,
-            level: 1
-          });
-          res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
-        }
-      } catch (error) {
-        console.error(error);
-        Logs.create({
-          userID: null,
-          action: req.url,
-          text: "error: " + error + " from ip:" + req.ip,
-          level: 3
-        });
-        res.status(500).json({"type":"result","result":"fail","message": "unable to update blog post"});
-      }
-    }
-    else{
-      Logs.create({
-        userID: null,
-        action: req.url,
-        text: "unauthorized: " + req.url + " from ip:" + req.ip,
-        level: 2
-      });
-      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
-    }
-  });
-});
 
 /*
 * @route POST /admin/getcertificates
