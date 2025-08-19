@@ -225,7 +225,58 @@ router.post("/unpublishreq", async (req, res) => {
     }
 });
 
+/*
+* @route POST /blog/deletepost
+* @param {uuid} postID
+* @return {json} 
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+*/
+router.post("/deleteblogpost", async (req, res) => {
 
+    const token = req.headers['authorization'];
+    var [result, decoded] = await secTest(token);
+
+    if (!result) {
+        return res.status(401).json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+    }
+
+    try {
+        var body = req.body;
+        const numberOfDeletedRows = await BlogPost.destroy({
+            where: {
+                postID: body.postID,
+                userID: decoded.id
+            }
+        });
+        if (numberOfDeletedRows > 0) {
+            Logs.create({
+                userID: decoded.id,
+                action: req.url,
+                text: "Blog post deleted: " + body.postID + " from ip:" + req.ip,
+                level: 1
+            });
+            res.json({ "type": "result", "result": "ok" });
+        } else {
+            Logs.create({
+                userID: decoded.id,
+                action: req.url,
+                text: "Blog post not found: " + body.postID + " from ip:" + req.ip,
+                level: 1
+            });
+            res.status(404).json({ "type": "result", "result": "fail", "message": "Blog post not found" });
+        }
+    } catch (error) {
+        console.error(error);
+        Logs.create({
+            userID: null,
+            action: req.url,
+            text: "error: " + error + " from ip:" + req.ip,
+            level: 3
+        });
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to delete blog post" });
+    }
+});
 
 export default router;
 
