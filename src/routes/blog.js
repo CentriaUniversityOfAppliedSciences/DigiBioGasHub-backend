@@ -2,6 +2,9 @@ import express from 'express';
 import { Logs, BlogPost } from '../models/index.js';
 const router = express.Router();
 import { secTest } from '../functions/utils.js';
+import minioconnector from '../minioconnector.js';
+import multer from 'multer';
+const upload = multer();
 
 /*
 * @route POST /blog/sendforreview
@@ -222,6 +225,68 @@ router.post("/unpublishreq", async (req, res) => {
             level: 3
         });
         res.status(500).json({ "type": "result", "result": "fail", "message": "unable to change blog post status" });
+    }
+});
+
+/*
+* @route POST /blog/createblogpostfile
+* @param {string} title
+* @param {text} content
+* @param {string} image (optional)
+* @param {uuid} userID
+* @param {integer} blogPostType
+*/
+router.post("/createblogpostfile", upload.single('file'), async (req, res) => {
+
+    const token = req.headers['authorization'];
+    var [result, decoded] = await secTest(token);
+
+    if (!result) {
+        return res.status(401).json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+    }
+
+    try {
+        var body = req.body;
+        var file = req.file;
+        const blogpost = await BlogPost.create({
+            title: body.title,
+            content: "",
+            image: body.image,
+            userID: decoded.id,
+            blogPostType: 3
+        });
+        Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "Blog post file created: " + blogpost.postID + " from ip:" + req.ip,
+            level: 1
+        });
+        if (file != null && file != undefined) {
+            const client = await minioconnector.createConnection();
+            const folder = "blogposts";
+            const filename = blogpost.postID + ".pdf";
+            const buffer = Buffer.from(file.buffer);
+            await minioconnector.insert(client, buffer, filename, folder);
+            minioconnector.closeConnection(client);
+            const bb = await BlogPost.update({
+                content: folder + "/" + filename
+            }, {
+                where: {
+                    postID: blogpost.postID
+                }
+            });
+        }
+        res.json({ "type": "result", "result": "ok", "message": blogpost });
+    }
+    catch (error) {
+        console.error(error);
+        Logs.create({
+            userID: null,
+            action: req.url,
+            text: "error: " + error + " from ip:" + req.ip,
+            level: 3
+        });
+        res.status(500).json({ "type": "result", "result": "fail", "message": "unable to  create blog post" });
     }
 });
 
