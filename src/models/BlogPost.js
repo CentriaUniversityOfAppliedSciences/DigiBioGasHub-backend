@@ -24,6 +24,9 @@ const BlogPost = sequelize.define('BlogPost',{
         type: DataTypes.UUID,
         allowNull: false
     },
+    author: {
+        type: DataTypes.STRING
+    },
     blogPostType:{
         type: DataTypes.SMALLINT,
     }

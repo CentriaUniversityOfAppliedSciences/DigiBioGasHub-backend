@@ -86,7 +86,8 @@ router.post("/createblogpost", async (req, res) => {
             content: body.content,
             image: body.image,
             userID: decoded.id,
-            blogPostType: 2
+            blogPostType: 2,
+            author: decoded.name
         });
         Logs.create({
             userID: decoded.id,
