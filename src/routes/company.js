@@ -1143,4 +1143,75 @@ router.post('/removecertificate', async (req, res) => {
   }
 });
 
+/* @route POST /company/contracts
+  * @param {uuid} companyID
+  * @return {json}
+  *   @key type @value result
+  *   @key result @value ["ok", "fail"]
+  *   @key message @value if fail {string} error message, if ok {array} contracts
+*/
+router.post('/contracts', async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result,decoded] = await secTest(token);
+  if (!result) {
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
+    return res.json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
+  }
+  var test = await userCompanyTest(token, req.body.companyID);
+  if (test === true){
+    try {
+      const contracts = await Contract.findAll({
+        include: [
+          {
+            model: Offer,
+            include: [
+              { model: User, attributes: ["id", "name", "email", "phone", "isPremiumUser"] },
+              { model: Company, attributes: ["id", "name", "address", "zipcode", "city"] }
+            ]
+          },
+          {
+            model: User, attributes: ["id", "name", "email", "phone", "isPremiumUser"]
+          },
+          {
+            model: Company, attributes: ["id", "name", "address", "zipcode", "city"]
+          }
+        ],
+        where: {
+          companyID: req.body.companyID
+        }
+      });
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access granted " + req.url + " from ip:" + req.ip,
+        level: 1
+      });
+      res.json({ type: "result", result: "ok", message: contracts });
+    } catch (error) {
+      console.error(error);
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access not granted " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+      res.json({ type: "result", result: "fail", message: "Unable to get contracts" });
+    }
+  }
+  else{
+    Logs.create({
+      userID: decoded.id,
+      action: req.url,
+      text: "access not granted " + req.url + " from ip:" + req.ip,
+      level: 2
+    });
+    res.json({ "type": "result", "result": "fail", "message": "Unauthorized access to company" });
+  }
+});
+
 export default router;
