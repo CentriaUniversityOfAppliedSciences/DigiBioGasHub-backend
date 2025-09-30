@@ -62,5 +62,14 @@
     "message": "Företaget \"{{companyName}}\" har begärt att få gå med på plattformen. Vänligen granska och godkänn.",
     "button": "Granska företag",
     "rights": "Alla rättigheter förbehållna."
+  },
+  "contactSeller": {
+    "subject": "Nytt meddelande angående ditt erbjudande (ID: {{offerId}})",
+    "title": "Du har fått ett nytt meddelande om ditt erbjudande",
+    "greeting": "Hej <b>{{companyName}}</b>,",
+    "receivedMessage": "Du har fått ett nytt meddelande gällande ditt erbjudande (ID: <b>{{offerId}}</b>):",
+    "contactInfo": "Kontaktuppgifter",
+    "messageLabel": "Meddelande",
+    "footer": "Detta är ett automatiskt meddelande från DigiBioGasHub."
   }
 }

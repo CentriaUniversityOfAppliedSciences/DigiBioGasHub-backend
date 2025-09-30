@@ -1,13 +1,23 @@
-export default async function contactSellerEmailTemplate({ companyName, contact, message, offerId }) {
-  const subject = `New message regarding your offer (ID: ${offerId})`;
+import i18n from "../i18n/config.js";
+import { User } from "../models/index.js";
 
-  const styles = {
-    body: `
+export default async function contactSellerEmailTemplate({ companyName, contact, message, offerId, userId }) {
+
+    const user = await User.findOne({
+        where: { id: userId },
+        attributes: ['language'],
+    });
+
+    const userLanguage = user.language || 'en';
+    i18n.setLocale(userLanguage);
+
+    const styles = {
+        body: `
       font-family: Arial, sans-serif;
       background: #f9f9f9;
       padding: 32px;
     `,
-    container: `
+        container: `
       max-width: 600px;
       margin: auto;
       background: #fff;
@@ -15,35 +25,37 @@ export default async function contactSellerEmailTemplate({ companyName, contact,
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
       padding: 24px;
     `,
-    title: `
+        title: `
       color: #2a7ae2;
     `,
-    messageBox: `
+        messageBox: `
       margin: 16px 0;
       padding: 16px;
       background: #f1f7ff;
       border-left: 4px solid #2a7ae2;
     `,
-    footer: `
+        footer: `
       color: #888;
       font-size: 13px;
     `
-  };
+    };
 
-  const contactSellerHTMLTemplate = `
+    const subject = i18n.__('contactSeller.subject', { offerId });
+
+    const contactSellerHTMLTemplate = `
     <div style="${styles.body}">
       <div style="${styles.container}">
-        <h2 style="${styles.title}">You have a new message about your offer</h2>
-        <p>Hello <b>${companyName}</b>,</p>
-        <p>You have received a new message regarding your offer (ID: <b>${offerId}</b>):</p>
+        <h2 style="${styles.title}">${i18n.__('contactSeller.title')}</h2>
+        <p>${i18n.__('contactSeller.greeting', { companyName })}</p>
+        <p>${i18n.__('contactSeller.receivedMessage', { offerId })}</p>
         <div style="${styles.messageBox}">
-          <p><b>Contact Info:</b> ${contact}</p>
-          <p><b>Message:</b><br>${message}</p>
+          <p><b>${i18n.__('contactSeller.contactInfo')}:</b> ${contact}</p>
+          <p><b>${i18n.__('contactSeller.messageLabel')}:</b><br>${message}</p>
         </div>
-        <p style="${styles.footer}">This is an automated message from DigiBioGasHub.</p>
+        <p style="${styles.footer}">${i18n.__('contactSeller.footer')}</p>
       </div>
     </div>
   `;
 
-  return { subject, html: contactSellerHTMLTemplate };
+    return { subject, html: contactSellerHTMLTemplate };
 }

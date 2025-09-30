@@ -2256,7 +2256,8 @@ app.post("/offer/contact-seller", async (req, res) => {
       companyName: toCompanyName,
       contact: contact,
       message: message,
-      offerId: offerId
+      offerId: offerId,
+      userId: decoded.id
     });
 
     sendEmail(toEmail, subject, contactSeller, (success, error) => {
