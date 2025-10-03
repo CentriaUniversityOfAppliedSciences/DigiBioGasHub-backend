@@ -17,6 +17,7 @@ import sendEmail from './email/emailService.js';
 import buyerEmailTemplate from './email/buyerEmailTemplate.js';
 import sellerEmailTemplate from './email/sellerEmailTemplate.js';
 import invitationEmailTemplate from './email/invitationEmailTemplate.js';
+import contactSellerEmailTemplate from './email/contactSellerEmailTemplate.js';
 import companyApprovalReqTemplate from './email/companyApprovalReqTemplate.js';
 import { OFFER_UNITS, OFFER_CARGOTYPE, MATERIAL_TYPE } from './constants/constants.js';
 import logisticsRouter from './routes/logistics.js';
@@ -2270,9 +2271,56 @@ app.post("/getOfferCertificate", async (req, res) => {
 });
 
 
+/*
+* @route POST /offer/contact-seller
+* @param {toCompanyId, toEmail, contact, message, offerId}
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if fail {string} error message, if ok {string} success message
+*/
+app.post("/offer/contact-seller", async (req, res) => {
+  const token = req.headers['authorization'];
+  var [result, decoded] = await secTest(token);
 
+  if (!result) {
+    return res.status(401).json({ type: "result", result: "fail", message: "Unauthorized access" });
+  }
 
+  try {
+    const { toCompanyId, toCompanyName, toEmail, contact, message, offerId } = req.body.payload || {};
 
+    if (!toCompanyId || !toCompanyName || !toEmail || !contact || !message || !offerId) {
+      return res.status(400).json({ type: "result", result: "fail", message: "Missing parameters" });
+    }
+
+    const { subject, html: contactSeller } = await contactSellerEmailTemplate({
+      companyName: toCompanyName,
+      contact: contact,
+      message: message,
+      offerId: offerId,
+      userId: decoded.id
+    });
+
+    sendEmail(toEmail, subject, contactSeller, (success, error) => {
+      if (!success) {
+        console.error("Failed to send message:", error);
+      }
+    });
+
+    await Logs.create({
+      userID: decoded.id,
+      action: "/offer/contact-seller",
+      text: `User ${decoded.id} sent a message to company ${toCompanyId} (email: ${toEmail}) via offer ${offerId}. Contact info: ${contact}`,
+      level: 1
+    });
+
+    res.json({ type: "result", result: "ok", message: "Message sent!" });
+  } catch (error) {
+    console.error("Error in contact-seller:", error);
+    res.status(500).json({ type: "result", result: "fail", message: "Unable to send message" });
+  }
+});
 
 
 app.use('/logistics', logisticsRouter);

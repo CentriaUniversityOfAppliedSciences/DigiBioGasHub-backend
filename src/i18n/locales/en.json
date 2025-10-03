@@ -62,5 +62,14 @@
     "message": "The company \"{{companyName}}\" has requested to join the platform. Please review and approve.",
     "button": "Review Company",
     "rights": "All rights reserved."
+  },
+  "contactSeller": {
+    "subject": "New message regarding your offer (ID: {{offerId}})",
+    "title": "You have a new message about your offer",
+    "greeting": "Hello <b>{{companyName}}</b>,",
+    "receivedMessage": "You have received a new message regarding your offer (ID: <b>{{offerId}}</b>):",
+    "contactInfo": "Contact Info",
+    "messageLabel": "Message",
+    "footer": "This is an automated message from DigiBioGasHub."
   }
 }

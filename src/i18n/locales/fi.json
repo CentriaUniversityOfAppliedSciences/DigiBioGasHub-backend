@@ -62,5 +62,14 @@
     "message": "Yritys \"{{companyName}}\" on pyytänyt liittymistä alustalle. Tarkista ja hyväksy.",
     "button": "Tarkastele yritystä",
     "rights": "Kaikki oikeudet pidätetään."
+  },
+  "contactSeller": {
+    "subject": "Uusi viesti koskien tarjoustasi (ID: {{offerId}})",
+    "title": "Olet saanut uuden viestin tarjouksestasi",
+    "greeting": "Hei <b>{{companyName}}</b>,",
+    "receivedMessage": "Olet saanut uuden viestin tarjoukseesi liittyen (ID: <b>{{offerId}}</b>):",
+    "contactInfo": "Yhteystiedot",
+    "messageLabel": "Viesti",
+    "footer": "Tämä on automaattinen viesti DigiBioGasHubilta."
   }
 }
