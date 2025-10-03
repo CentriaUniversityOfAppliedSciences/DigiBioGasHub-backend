@@ -6,7 +6,6 @@
 import express from 'express';
 var app = express();
 var port = process.env.SERVER_PORT;
-import multer from 'multer';
 import axios from 'axios';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -89,7 +88,7 @@ var corsOptionsDelegate = async function (req,callback) {
     // db.loadOrigins is an example call to load
     // a list of origins from a backing database
     var origin = req.header('Origin');
-    console.log(origin);
+    //console.log(origin);
     if (origin != null || origin != undefined){
       const hub = await Hub.findOne({ 
         where: { origin: origin }
@@ -675,18 +674,43 @@ app.post("/updatecompany", async (req, res) => {
 
 app.post("/getuser", async (req, res) => {
   try{
-    var body = req.body;
-    const user = await User.findOne({
-      where:{
-        id: body.id
-      },
-      attributes: { exclude: ['password'] }
-    });
-    res.json({"type":"result","result":"ok","message":user});
+    const token = req.headers['authorization'];
+    var [result,decoded] = await secTest(token);
+    if (result == true){
+      var body = req.body;
+      const user = await User.findOne({
+        where:{
+          id: body.id
+        },
+        attributes: { exclude: ['password'] }
+      });
+      res.json({"type":"result","result":"ok","message":user});
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "access granted: " + req.url + " from ip:" + req.ip,
+        level: 1
+      });
+    }
+    else{
+      res.status(401).json({"type":"result","result":"fail","message": "unauthorized access"});
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "not authorized: " + req.url + " from ip:" + req.ip,
+        level: 2
+      });
+    }
   }
   catch (error) {
-    console.error(error);
+    //console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot get user"});
+    Logs.create({
+      userID: decoded.id,
+      action: req.url,
+      text: "error: " + error + " from ip:" + req.ip,
+      level: 3
+    });
   }
 });
 
@@ -723,10 +747,22 @@ app.post("/getallusers", async (req, res) => {
       }
     };
     res.json({ type: "result", result: "ok", message: allowedUsers });
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "access granted " + req.url + " from ip:" + req.ip,
+      level: 1
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ type: "result", result: "fail", message: "cannot get users" });
-  }
+      console.error(error);
+      res.status(500).json({ type: "result", result: "fail", message: "cannot get users" });
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "error: " + error + " from ip:" + req.ip,
+        level: 3
+      });
+    }
 });
 
 /*
@@ -749,6 +785,12 @@ app.post("/getusername", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ type: "result", result: "fail", message: "cannot get username" });
+    Logs.create({
+      userID: decoded.id,
+      action: req.url,
+      text: "error: " + error + " from ip:" + req.ip,
+      level: 3
+    });
   }
 });
 
