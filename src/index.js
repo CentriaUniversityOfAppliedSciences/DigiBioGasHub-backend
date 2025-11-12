@@ -400,23 +400,33 @@ app.post("/createcompany", async (req, res) => {
         attributes: ['email', 'language']
       });
 
-      for (const admin of superAdmins) {
-        const { subject, html } = companyApprovalReqTemplate({
-          language: admin.language || 'en',
-          company,
-          url: process.env.FRONTEND_URL + `/admin/manage-companies`
-        });
-
-        await new Promise((resolve) => {
-          sendEmail(admin.email, subject, html, (success, error) => {
-            if (!success) {
-              console.error("Super admin email error:", error);
-            }
-            resolve();
+      const sendEmailPromise = (receiver, subject, msgHTML) => {
+        return new Promise((resolve, reject) => {
+          sendEmail(receiver, subject, msgHTML, (success, error) => {
+            if (success) resolve(receiver);
+            else reject({ receiver, error });
           });
         });
+      };
 
-        await new Promise(resolve => setTimeout(resolve, 250));
+      const promises = superAdmins.map(async (admin) => {
+        const { subject, html } = companyApprovalReqTemplate({
+          language: admin.language || "en",
+          company,
+          url: `${process.env.FRONTEND_URL}/admin/manage-companies`,
+        });
+
+        return sendEmailPromise(admin.email, subject, html);
+      });
+
+      const results = await Promise.allSettled(promises);
+
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          console.log(`Sent to: ${result.value}`);
+        } else {
+          console.error(`Failed to send to: ${result.reason.receiver}`, result.reason.error);
+        }
       }
     }
     else {

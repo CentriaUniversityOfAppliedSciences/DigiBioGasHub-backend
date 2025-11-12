@@ -14,8 +14,8 @@ How to use
   CHAT_SERVER_API_KEY=your-chatserver-api-key \
   MINIO_DEV=false \
   MINIO_ADDRESS=your_web_server_behind_nginx \
-  EMAIL_SENDER=sender_email_address \ 
-  EMAIL_PASS=sender_email_password \
+  EMAIL_SENDER=sender_email_address \  
+  EMAIL_CONNECTION_STRING=your_azure_email_connection_string  
   SERVER_ADDRESS=address_to_frontend \
   FRONTEND_URL=your-frontend-url  
   STRIPE_SECRET_KEY=your-stripe-secret-key  
