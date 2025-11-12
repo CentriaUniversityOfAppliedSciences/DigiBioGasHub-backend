@@ -28,7 +28,7 @@ import checkoutRouter from './routes/checkout.js';
 import stripewebhookRouter from './routes/stripewebhook.js';
 import blogRouter from './routes/blog.js';
 import apikeyRouter from './routes/apikey.js';
-import { getCoords, secTest, adminTest } from './functions/utils.js';
+import { getCoords, secTest, adminTest, userCompanyTest } from './functions/utils.js';
 import sharp from 'sharp';
 import * as rfs from 'rotating-file-stream';
 import path from 'path';
@@ -825,15 +825,33 @@ app.post("/updateuser", async (req, res) => {
         }
       });
       res.json({ "type": "result", "result": "ok", "message": user });
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "user updated their profile from ip:" + req.ip,
+        level: 1
+      });
     }
     else {
       res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "unauthorized access attempt from ip:" + req.ip,
+        level: 2
+      });
     }
 
   }
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot update user"});
+    Logs.create({
+      userID: decoded.id,
+      action: req.url,
+      text: "error: " + error + " from ip:" + req.ip,
+      level: 3
+    });
   }
 });
 
@@ -854,7 +872,14 @@ app.delete("/deleteuser", async (req, res) => {
     const token = req.headers['authorization'];
     var [result,decoded] = await secTest(token);
     if (result == false || decoded.id != body.id){
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "unauthorized access attempt from ip:" + req.ip,
+        level: 2
+      });
       return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+
     }
     Logs.create({
       userID: decoded.id,
@@ -883,6 +908,12 @@ app.delete("/deleteuser", async (req, res) => {
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot delete user"});
+    Logs.create({
+      userID: tempID,
+      action: req.url,
+      text: "error: " + error + " from ip:" + req.ip,
+      level: 3
+    });
   }
 });
 
@@ -894,12 +925,23 @@ app.delete("/deleteuser", async (req, res) => {
   * @key result @value ["ok", "fail"]
   * @key message @value if "fail" {string} error message, if "ok" {json} company
 */
-
+//TODO security check that user has right to delete the company
 app.post("/deletecompany", async (req, res) => {
   try{
     const token = req.headers['authorization'];
     var [result,decoded] = await secTest(token);
     if (result == true){
+      var compuser = await userCompanyTest(decoded.id, req.body.id);
+      if (compuser == false){
+        res.status(401).json({"type":"result","result":"fail","message": "unauthorized access"});
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "unauthorized access attempt, not member of company from ip:" + req.ip,
+          level: 2
+        });
+        return;
+      }
       var body = req.body;
       await Offer.destroy({ where: { companyID: body.id } });
       const company = await Company.destroy({
@@ -914,6 +956,21 @@ app.post("/deletecompany", async (req, res) => {
         });
       });
       res.json({"type":"result","result":"ok","message":company});
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "company delete success, for company " + body.id + " from ip:" + req.ip,
+        level: 1
+      });
+    }
+    else{
+      res.status(401).json({"type":"result","result":"fail","message": "unauthorized access"});
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "unauthorized access attempt from ip:" + req.ip,
+        level: 2
+      });
     }
   }
   catch (error) {
@@ -937,7 +994,29 @@ app.post("/deletecompany", async (req, res) => {
 */
 
 app.post("/createlocation", async (req, res) => {
+
   try{
+    const token = req.headers['authorization'];
+    var [result,decoded] = await secTest(token);
+    if (result == false){
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "unauthorized access attempt from ip:" + req.ip,
+        level: 2
+      });
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
+    var userComp = await userCompanyTest(decoded.id, req.body.companyID);
+    if (userComp == false){
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "unauthorized access attempt, not member of company from ip:" + req.ip,
+        level: 2
+      });
+      return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+    }
     var body = req.body;
     const location = await Location.create({
       name: body.name,
@@ -947,10 +1026,22 @@ app.post("/createlocation", async (req, res) => {
       companyID: body.companyID
     });
     res.json({"type":"result","result":"ok","message":location});
+    Logs.create({
+      userID: decoded.id,
+      action: req.url,
+      text: "location create success, for location " + location.id + " from ip:" + req.ip,
+      level: 1
+    });
   }
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot create location"});
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "location create failed, for error " + error + " from ip:" + req.ip,
+      level: 3
+    });
   }
 });
 
@@ -962,8 +1053,8 @@ app.post("/createlocation", async (req, res) => {
   * @key result @value ["ok", "fail"]
   * @key message @value if "fail" {string} error message, if "ok" {json} locations
 */
-
-app.post("/getlocations", async (req, res) => {
+//NOT IN USE
+/*app.post("/getlocations", async (req, res) => {
   try{
     const locations = await Location.findAll({
       where:{
@@ -976,7 +1067,7 @@ app.post("/getlocations", async (req, res) => {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot get locations"});
   }
-});
+});*/
 
 /*
 * @route POST /createoffer
@@ -1020,6 +1111,25 @@ app.post("/createoffer", async (req, res) => {
 
     try {
         var [result,decoded] = await secTest(token);
+        if (result == false){
+          Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "unauthorized access attempt from ip:" + req.ip,
+            level: 2
+          });
+          return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+        }
+        var userComp = await userCompanyTest(decoded.id, body.companyID);
+        if (userComp == false){
+          Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "unauthorized access attempt, not member of company from ip:" + req.ip,
+            level: 2
+          });
+          return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+        }
         const offer = await Offer.create({
           type: body.type,
           materialID: body.materialID,
@@ -1109,17 +1219,35 @@ app.post("/createoffer", async (req, res) => {
             });
           }
         }
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "offer create success, for offer " + offer.id + " from ip:" + req.ip,
+          level: 1
+        });
         res.json({"type":"result","result":"ok","message":offer});
     }
     catch (error2) {
       console.log(error2);
       res.status(500).json({"type":"result","result":"fail","message": "cannot create offer"});
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "offer create failed error " + error2 + " from ip:" + req.ip,
+        level: 2
+      });
     };
     
   }
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot create offer"});
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "offer create failed, for error " + error + " from ip:" + req.ip,
+      level: 3
+    });
   }
 });
 
@@ -1154,6 +1282,25 @@ app.post("/updateoffer", async (req, res) => {
     
     try {
         var [result,decoded] = await secTest(token);
+        if (result == false){
+          Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "unauthorized access attempt from ip:" + req.ip,
+            level: 2
+          });
+          return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+        }
+        var userComp = await userCompanyTest(decoded.id, body.companyID);
+        if (userComp == false){
+          Logs.create({
+            userID: decoded.id,
+            action: req.url,
+            text: "unauthorized access attempt, not member of company from ip:" + req.ip,
+            level: 2
+          });
+          return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+        }
         const offer = await Offer.update({
           type: body.type,
           materialID: body.materialID,
@@ -1203,7 +1350,7 @@ app.post("/updateoffer", async (req, res) => {
               parent: body.id,
               data: `${folder}/${filename}` // Reference to the MinIO file
             });
-            console.log("oldImage",body.oldImage);
+            
             await minioconnector.deleteFile(client, folder, body.oldImage);
             await Files.destroy({
               where:{
@@ -1307,11 +1454,23 @@ app.post("/updateoffer", async (req, res) => {
     catch (error2) {
       console.log(error2);
       res.status(500).json({"type":"result","result":"fail","message": "cannot update offer"});
+      Logs.create({
+        userID: null,
+        action: req.url,
+        text: "offer update failed error " + error2 + " from ip:" + req.ip,
+        level: 2
+      });
     }
   }
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot update offer"});
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "offer update failed, for error " + error + " from ip:" + req.ip,
+      level: 3
+    });
   }
 });
 
@@ -1328,6 +1487,17 @@ app.post("/deleteoffer", async (req, res) => {
   var [result,decoded] = await secTest(token);
   try{
     if (result == true){
+      var userComp = await userCompanyTest(decoded.id, body.companyID);
+      if (userComp == false){
+        res.status(401).json({"type":"result","result":"fail","message": "unauthorized access"});
+        Logs.create({
+          userID: decoded.id,
+          action: req.url,
+          text: "unauthorized access attempt, not member of company from ip:" + req.ip,
+          level: 2
+        });
+        return;
+      }
       var body = req.body;
       const offer = await Offer.destroy({
         where:{
@@ -1349,11 +1519,32 @@ app.post("/deleteoffer", async (req, res) => {
         }
       });
       res.json({"type":"result","result":"ok","message":offer});
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "offer delete success, for offer " + body.id + " from ip:" + req.ip,
+        level: 1
+      });
+    }
+    else{
+      res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "unauthorized access attempt from ip:" + req.ip,
+        level: 2
+      });
     }
   }
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot delete offer"});
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "error: " + error + " from ip:" + req.ip,
+      level: 3
+    });
   }
   
 });
@@ -1372,6 +1563,12 @@ app.post("/getoffers", async (req, res) => {
   const token = req.headers['authorization'];
   var [result,decoded] = await secTest(token);
   if (result == false) {
+    Logs.create({
+      userID:  decoded.id,
+      action: req.url,
+      text: "unauthorized access attempt from ip:" + req.ip,
+      level: 2
+    });
     return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
   }
   try{
@@ -1439,10 +1636,22 @@ app.post("/getoffers", async (req, res) => {
       offer.dataValues.matchesFilter = allowedTypeIds.includes(offerType);
     }
     res.json({"type":"result","result":"ok", "message":offers, "filtered": allowedTypeIds.length > 0, "appliedFilter": filter});
+    Logs.create({
+      userID: decoded.id,
+      action: req.url,
+      text: "get offers success from ip:" + req.ip,
+      level: 1
+    });
   }
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot get offers"});
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "error: " + error + " from ip:" + req.ip,
+      level: 3
+    });
   }
 });
 
@@ -1466,17 +1675,48 @@ app.post("/getuseroffers", async (req, res) => {
         }
       });
       res.json({"type":"result","result":"ok", "message":offers});
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "get user offers success from ip:" + req.ip,
+        level: 1
+      });
     }
     else{
       res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "unauthorized access attempt from ip:" + req.ip,
+        level: 2
+      });
     }
     
   }
   catch (error) {
     console.error(error);
     res.status(500).json({"type":"result","result":"fail","message": "cannot get offers"});
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "error: " + error + " from ip:" + req.ip,
+      level: 3
+    });
   }
 });
+
+/*
+* @route POST /buyoffer
+* @param {uuid} offerId
+* @param {float} price
+* @param {float} amount
+* @param {integer} unit
+* @param {uuid} companyID
+* @return {json}
+  * @key type @value result
+  * @key result @value ["ok", "fail"]
+  * @key message @value if "fail" {string} error message, if "ok" {json} contract
+*/
 
 app.post("/buyoffer", async (req, res) => {
   try {
@@ -1484,6 +1724,12 @@ app.post("/buyoffer", async (req, res) => {
     const [result, decoded] = await secTest(token);
 
     if (!result) {
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "unauthorized access attempt from ip:" + req.ip,
+        level: 2
+      });
       return res.status(401).json({ "type": "result", "result": "fail", "message": "Unauthorized access" });
     }
 
@@ -1503,6 +1749,12 @@ app.post("/buyoffer", async (req, res) => {
     });
 
     if (!offer) {
+      Logs.create({
+        userID: decoded.id,
+        action: req.url,
+        text: "offer not found: " + body.offerId + " from ip:" + req.ip,
+        level: 3
+      });
       return res.status(404).json({ type: "result", result: "fail", message: "Offer not found" });
     }
 
@@ -1574,10 +1826,22 @@ app.post("/buyoffer", async (req, res) => {
     }
 
     res.json({ type: "result", result: "ok", message: contract });
+    Logs.create({
+      userID: decoded.id,
+      action: req.url,
+      text: "Buy offer success, for offer " + body.offerId + " from ip:" + req.ip,
+      level: 1
+    });
 
   } catch (error) {
     console.error("Buy offer error:", error);
     res.status(500).json({ type: "result", result: "fail", message: "Cannot buy offer" });
+    Logs.create({
+      userID: null,
+      action: req.url,
+      text: "Buy offer error: " + error + " from ip:" + req.ip,
+      level: 3
+    });
   }
 });
 

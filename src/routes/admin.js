@@ -1,13 +1,10 @@
 import express from 'express';
 import { Op } from 'sequelize';
 import { User, Hub, Company, Location, UserCompany, Invitation, Logs, Contract, Offer, Material, Bids, BlogPost, Files, Settings, Subscription, Logistics, Certificates, CompanyCertificates} from '../models/index.js';
-import jwt from 'jsonwebtoken';
 import { adminTest } from '../functions/utils.js'; 
 const router = express.Router();
 import minioconnector from '../minioconnector.js';
 import sequelize from '../models/database.js';
-import multer from 'multer';
-const upload = multer();
 
 
 /* update user with admin rights */
