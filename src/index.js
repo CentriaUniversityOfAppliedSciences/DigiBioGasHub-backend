@@ -941,7 +941,7 @@ app.post("/deletecompany", async (req, res) => {
     const token = req.headers['authorization'];
     var [result,decoded] = await secTest(token);
     if (result == true){
-      var compuser = await userCompanyTest(decoded.id, req.body.id);
+      var compuser = await userCompanyTest(token, req.body.id);
       if (compuser == false){
         res.status(401).json({"type":"result","result":"fail","message": "unauthorized access"});
         Logs.create({
@@ -1017,7 +1017,7 @@ app.post("/createlocation", async (req, res) => {
       });
       return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
     }
-    var userComp = await userCompanyTest(decoded.id, req.body.companyID);
+    var userComp = await userCompanyTest(token, req.body.companyID);
     if (userComp == false){
       Logs.create({
         userID: decoded.id,
@@ -1130,7 +1130,7 @@ app.post("/createoffer", async (req, res) => {
           });
           return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
         }
-        var userComp = await userCompanyTest(decoded.id, body.companyID);
+        var userComp = await userCompanyTest(token, body.companyID);
         if (userComp == false){
           Logs.create({
             userID: decoded.id,
@@ -1301,7 +1301,7 @@ app.post("/updateoffer", async (req, res) => {
           });
           return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
         }
-        var userComp = await userCompanyTest(decoded.id, body.companyID);
+        var userComp = await userCompanyTest(token, body.companyID);
         if (userComp == false){
           Logs.create({
             userID: decoded.id,
@@ -1497,7 +1497,7 @@ app.post("/deleteoffer", async (req, res) => {
   var [result,decoded] = await secTest(token);
   try{
     if (result == true){
-      var userComp = await userCompanyTest(decoded.id, body.companyID);
+      var userComp = await userCompanyTest(token, body.companyID);
       if (userComp == false){
         res.status(401).json({"type":"result","result":"fail","message": "unauthorized access"});
         Logs.create({
