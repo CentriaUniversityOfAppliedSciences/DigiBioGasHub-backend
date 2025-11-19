@@ -1140,6 +1140,15 @@ app.post("/createoffer", async (req, res) => {
           });
           return res.status(401).json({ "type": "result", "result": "fail", "message": "unauthorized access" });
         }
+
+        let endDate = body.endDate;
+
+        if (body.isPermanent) {
+         const now = new Date();
+         const permanentEndDate = new Date(now.setFullYear(now.getFullYear() + 200));
+         endDate = permanentEndDate;
+        }
+
         const offer = await Offer.create({
           type: body.type,
           materialID: body.materialID,
@@ -1149,7 +1158,7 @@ app.post("/createoffer", async (req, res) => {
           price: body.price,
           amount: body.amount,
           startDate: body.startDate,
-          endDate: body.endDate,
+          endDate:endDate,
           availableAmount: body.amount,
           creator: decoded.id,
           status: 1,
