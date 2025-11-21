@@ -1,3 +1,8 @@
+# DigiBioGasHubBackend
+
+![Project is co-funded by the European Union](./src/assets/funder-logo-en.png)
+[Project Website](https://sites.uwasa.fi/digibiogashubs/)
+
 How to use
 
 1. Add **.env** file \
